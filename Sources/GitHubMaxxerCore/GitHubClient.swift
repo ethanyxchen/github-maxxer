@@ -162,9 +162,9 @@ public enum GitHubError: LocalizedError, Sendable {
 
   public var errorDescription: String? {
     switch self {
-    case .unauthorized: "GitHub rejected this credential. Connect again with a valid token."
+    case .unauthorized: "GitHub rejected this connection. Sign in again."
     case .forbidden:
-      "GitHub denied access. Check the token's repository permissions and your organization's SSO authorization."
+      "GitHub denied access. Check this connection's repository access and your organization's app approval or SSO authorization."
     case .rateLimited:
       "GitHub's request limit was reached. Your last activity is still available; try again later."
     case .invalidResponse: "GitHub returned an incomplete response. Try refreshing again."

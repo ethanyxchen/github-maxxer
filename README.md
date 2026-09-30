@@ -2,7 +2,7 @@
 
 A native macOS app for tracking the pull requests you merge, across personal projects and work repositories.
 
-Set daily, weekly, and monthly targets. Connect multiple GitHub accounts or tokens, choose entire repository owners or individual repositories, and see your progress alongside GitHub's contribution calendar. The app uses SwiftUI navigation, forms, tables, toolbars, settings, and a menu bar item, and follows your system appearance.
+Set daily, weekly, and monthly targets. Connect multiple GitHub accounts, choose entire repository owners or individual repositories, and see your progress alongside GitHub's contribution calendar. The app uses SwiftUI navigation, forms, tables, toolbars, settings, and a menu bar item, and follows your system appearance.
 
 ## Run locally
 
@@ -19,11 +19,30 @@ Open `Package.swift` in Xcode to work on the app. There are no external dependen
 
 ## Connect GitHub
 
-Choose **Connect GitHub**. Either paste a personal access token or choose **Use GitHub CLI** to use the account already signed in to `github.com` with `gh auth login`. Give each connection a name such as Personal or Work.
+Choose **Connect GitHub**, name the connection Personal or Work, and click **Sign in with GitHub**. The app opens your browser and shows a short code. Enter that code on GitHub and approve access; your activity loads automatically. No manual access token or GitHub CLI installation is needed.
 
-The app validates the credential and loads activity before saving it in macOS Keychain. It only reads GitHub data. Classic tokens need `repo`, `read:user`, and `read:org` to include private repositories, private contributions, and organization access; these GitHub scopes also grant capabilities the app never uses. Fine-grained tokens should have read access to pull requests and selected repositories. They cover one resource owner, so add separate connections for personal and organization access. Organizations may require token approval or SSO authorization.
+**Include private repositories** requests GitHub's `repo`, `read:user`, and `read:org` OAuth scopes. GitHub's `repo` permission also grants write access; this app only reads data. Turn the option off to request just `read:user` and `read:org` for public activity. Organizations may require approval or SSO authorization before private activity is accessible.
 
-You can connect multiple accounts, or several tokens for the same account. Overlapping PRs count once. Reconnect or disconnect a credential from **Targets & Accounts**. Browser OAuth sign in is not part of this first version; it would require a registered GitHub OAuth application.
+Credentials are saved in macOS Keychain after the app validates the account and loads its activity. You can add multiple accounts or several connections for the same account with different repository selections. Overlapping PRs count once. Reconnect or disconnect from **Targets & Accounts**. Disconnect removes the local credential; revoke the app's access separately in GitHub's authorized applications settings if desired.
+
+**Use GitHub CLI** imports the account already signed in to `github.com` through `gh auth login`. This option uses your CLI credential's existing permissions rather than the private repositories toggle, which configures browser sign in only.
+
+### One-time setup for the app owner
+
+Browser sign in uses [GitHub's OAuth device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow). Register one OAuth app for GitHub Maxxer; end users do not need to register their own app.
+
+1. Open [Register a new OAuth application](https://github.com/settings/applications/new).
+2. Set the name to **GitHub Maxxer** and homepage to `https://github.com/ethanyxchen/github-maxxer`.
+3. Set the required callback URL to `https://github.com/ethanyxchen/github-maxxer`. Device flow does not use a callback.
+4. Register the app and enable **Device Flow** in its settings. Use default non-expiring tokens.
+5. Copy the public **Client ID**, then build:
+
+```sh
+GITHUB_OAUTH_CLIENT_ID=your_client_id ./scripts/build-app.sh
+open 'build/GitHub Maxxer.app'
+```
+
+The build embeds the public Client ID in the app bundle. No client secret is needed or shipped. For `swift run` or Xcode development, set the same environment variable. An unconfigured build explains the missing registration when browser sign in is attempted; CLI import remains available.
 
 ## How activity is counted
 

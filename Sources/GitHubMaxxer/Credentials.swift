@@ -57,7 +57,7 @@ enum CredentialError: LocalizedError {
     case .keychain(let status):
       "Keychain could not access this connection (\(status)). Unlock your Mac or reconnect the account."
     case .invalidData: "This saved credential could not be read. Reconnect the account."
-    case .cliUnavailable: "GitHub CLI was not found. Connect with a personal access token instead."
+    case .cliUnavailable: "GitHub CLI was not found. Sign in with GitHub in your browser instead."
     case .cliNotAuthenticated:
       "GitHub CLI is not signed in to github.com. Run gh auth login, then try again."
     }

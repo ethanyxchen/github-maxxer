@@ -215,7 +215,7 @@ private enum ConnectionError: LocalizedError {
     switch self {
     case .busy: "Another GitHub connection is loading. Wait for it to finish, then try again."
     case .wrongAccount(let login):
-      "This token belongs to a different account. Reconnect @\(login), or add it as a new connection."
+      "You signed in to a different account. Reconnect @\(login), or add it as a new connection."
     }
   }
 }
