@@ -1,0 +1,152 @@
+import GitHubMaxxerCore
+import SwiftUI
+
+struct RepositoriesView: View {
+  @Environment(AppModel.self) private var model
+  @State private var selectedConnection: UUID?
+  @State private var search = ""
+
+  private var account: AccountConnection? {
+    model.connections.first { $0.id == selectedConnection } ?? model.connections.first
+  }
+
+  private var repositories: [Repository] {
+    (account?.snapshot.repositories ?? []).filter {
+      search.isEmpty || $0.nameWithOwner.localizedCaseInsensitiveContains(search)
+    }
+  }
+
+  var body: some View {
+    Group {
+      if let account {
+        VStack(spacing: 0) {
+          VStack(alignment: .leading, spacing: 12) {
+            HStack {
+              if model.connections.count > 1 {
+                Picker(
+                  "Connection",
+                  selection: Binding(
+                    get: { self.account?.id ?? account.id }, set: { selectedConnection = $0 }
+                  )
+                ) {
+                  ForEach(model.connections) { connection in
+                    Text("\(connection.label) · @\(connection.profile.login)").tag(connection.id)
+                  }
+                }
+                .frame(width: 340)
+              } else {
+                Text("\(account.label) · @\(account.profile.login)").font(.headline)
+              }
+              Spacer()
+              Text(
+                "\(repositories.filter { account.scope.includes($0) }.count) of \(repositories.count) tracked"
+              )
+              .font(.callout).foregroundStyle(.secondary).monospacedDigit()
+            }
+            HStack {
+              Toggle(
+                "Track all accessible repositories",
+                isOn: Binding(
+                  get: { account.scope.allRepositories },
+                  set: { value in
+                    var scope = account.scope
+                    scope.allRepositories = value
+                    model.setScope(scope, for: account.id)
+                  }
+                ))
+              Spacer()
+              Menu("Track owners") {
+                ForEach(Set(account.snapshot.repositories.map(\.owner)).sorted(), id: \.self) {
+                  owner in
+                  Toggle(owner, isOn: ownerBinding(owner, account: account))
+                }
+              }
+              .fixedSize()
+              .disabled(account.scope.allRepositories)
+            }
+            Text(
+              "Owner selections include current and future repositories. Tracked repositories count toward your PR targets."
+            )
+            .font(.callout).foregroundStyle(.secondary)
+          }
+          .padding(20)
+          if repositories.isEmpty {
+            ContentUnavailableView.search(text: search)
+              .frame(maxWidth: .infinity, maxHeight: .infinity)
+          } else {
+            Table(repositories) {
+              TableColumn("Track") { repository in
+                Toggle(
+                  "Track \(repository.nameWithOwner)",
+                  isOn: repositoryBinding(repository, account: account)
+                )
+                .labelsHidden().toggleStyle(.checkbox)
+                .disabled(
+                  account.scope.allRepositories || account.scope.includesOwner(repository.owner)
+                )
+                .padding(.vertical, 7)
+              }
+              .width(55)
+              TableColumn("Repository") { repository in
+                Label(repository.name, systemImage: "book.closed").lineLimit(1)
+              }
+              .width(min: 180, ideal: 330)
+              TableColumn("Owner") { repository in
+                Text(repository.owner).foregroundStyle(.secondary)
+              }
+              .width(min: 130, ideal: 180)
+              TableColumn("Visibility") { repository in
+                Text(repository.isPrivate ? "Private" : "Public").foregroundStyle(.secondary)
+              }
+              .width(80)
+            }
+          }
+          Text(
+            "Missing a work repository? Check this credential's access and SSO authorization, or add another connection."
+          )
+          .font(.caption).foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 20).padding(.vertical, 14)
+        }
+      } else {
+        ContentUnavailableView(
+          "No repositories yet", systemImage: "folder",
+          description: Text(
+            "Connect GitHub to choose which repositories count toward your targets."))
+      }
+    }
+    .searchable(text: $search, prompt: "Find a repository or owner")
+  }
+
+  private func ownerBinding(_ owner: String, account: AccountConnection) -> Binding<Bool> {
+    Binding {
+      account.scope.includesOwner(owner)
+    } set: { selected in
+      var scope = account.scope
+      if selected {
+        scope.owners.insert(owner)
+        scope.repositories.subtract(
+          account.snapshot.repositories.filter { $0.owner == owner }.map(\.id))
+      } else {
+        scope.owners = scope.owners.filter { $0.caseInsensitiveCompare(owner) != .orderedSame }
+      }
+      model.setScope(scope, for: account.id)
+    }
+  }
+
+  private func repositoryBinding(_ repository: Repository, account: AccountConnection) -> Binding<
+    Bool
+  > {
+    Binding {
+      account.scope.includes(repository)
+    } set: { selected in
+      var scope = account.scope
+      if selected {
+        scope.repositories.insert(repository.id)
+      } else {
+        scope.repositories.remove(repository.id)
+      }
+      model.setScope(scope, for: account.id)
+    }
+  }
+}
