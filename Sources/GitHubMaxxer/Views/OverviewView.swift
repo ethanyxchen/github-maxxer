@@ -162,9 +162,6 @@ private struct PeriodPullRequestsView: View {
               PullRequestRow(pull: pull)
                 .padding(.horizontal, 20)
                 .frame(height: rowHeight)
-                .overlay(alignment: .bottom) {
-                  if pull.id != pulls.last?.id { Divider().padding(.leading, 56) }
-                }
             }
           }
         }
