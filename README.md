@@ -13,15 +13,17 @@ Requires macOS 14 or newer and Xcode 26 or newer with Swift 6.2.
 open 'build/Hammertime.app'
 ```
 
-You can copy the resulting app to Applications. This local build is ad hoc signed; distributing it to other Macs requires Developer ID signing and notarization.
+You can copy the resulting app to Applications. Local builds use the trusted **Hammertime Development** code-signing certificate. Distributing the app to other Macs requires Developer ID signing and notarization.
 
-Ad hoc signatures change with each build, so macOS may ask again before the rebuilt app can read saved GitHub credentials. To keep Keychain authorization across builds, install a code-signing certificate and consistently build with its name or SHA-1 hash:
+Using the same certificate keeps the app's signing identity stable across builds so Keychain authorization can persist. To use another certificate, consistently build with its name or SHA-1 hash:
 
 ```sh
 CODESIGN_IDENTITY='your signing identity' ./scripts/build-app.sh
 ```
 
-List available identities with `security find-identity -v -p codesigning`. The first build with a new signing identity may still need Keychain approval.
+List available identities with `security find-identity -v -p codesigning`. In Keychain Access, open the certificate, expand **Trust**, and set **Code Signing** to **Always Trust**. The first build with a new signing identity may still need Keychain approval. The build fails if the selected certificate is unavailable.
+
+For an ad hoc build, explicitly set `CODESIGN_IDENTITY=-`. Its signing identity changes with each build, so macOS may ask again before it can read saved GitHub credentials.
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 
