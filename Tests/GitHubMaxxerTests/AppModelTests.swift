@@ -6,15 +6,33 @@ import Testing
 
 @MainActor
 struct AppModelTests {
+  @Test func dailyGoalUpdatesWeeklyAndMonthlyTargets() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let model = AppModel(stateURL: url)
+    model.setDailyGoal(3)
+    #expect(model.progress(for: .day).target == 3)
+    #expect(model.progress(for: .week).target == 15)
+    #expect(model.progress(for: .month).target == 60)
+    let reloaded = AppModel(stateURL: url)
+    #expect(reloaded.goals.daily == 3)
+    #expect(reloaded.goals.weekly == 15)
+    #expect(reloaded.goals.monthly == 60)
+    let state = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    let savedGoals = state["goals"] as! [String: Any]
+    #expect(Set(savedGoals.keys) == ["daily"])
+  }
+
   @Test func goalsSurviveRelaunchAndStayPositive() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
     let model = AppModel(stateURL: url)
-    model.setGoal(12, for: .week)
-    model.setGoal(-4, for: .day)
+    model.setDailyGoal(-4)
     let reloaded = AppModel(stateURL: url)
-    #expect(reloaded.goals.weekly == 12)
+    #expect(reloaded.goals.weekly == 5)
+    #expect(reloaded.goals.monthly == 20)
     #expect(reloaded.goals.daily == 1)
     let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
     #expect(attributes[.posixPermissions] as? Int == 0o600)
@@ -24,7 +42,7 @@ struct AppModelTests {
     let url = URL.temporaryDirectory.appending(path: UUID().uuidString).appending(
       path: "state.json")
     let model = AppModel(preview: true, stateURL: url)
-    model.setGoal(3, for: .day)
+    model.setDailyGoal(3)
     model.setScope(RepositoryScope(allRepositories: false), for: model.connections[0].id)
     #expect(!FileManager.default.fileExists(atPath: url.path))
   }

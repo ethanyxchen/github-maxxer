@@ -92,8 +92,8 @@ final class AppModel {
     GoalProgress(count: period.count(in: pullRequests, now: now), target: goals[period])
   }
 
-  func setGoal(_ value: Int, for period: GoalPeriod) {
-    goals[period] = value
+  func setDailyGoal(_ value: Int) {
+    goals = Goals(daily: value)
     persist()
   }
 

@@ -48,6 +48,7 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 
 ## How activity is counted
 
+- Edit the daily PR target in **Targets & Accounts**. Weekly and monthly targets update automatically using 5 days per week and 20 days per month: a daily target of 3 gives weekly and monthly targets of 15 and 60.
 - Targets count PRs **you authored**, using the time they were **merged**, including merges performed by someone else. Closed but unmerged PRs do not count.
 - Daily and monthly targets use your Mac's time zone. Weeks start Monday.
 - **Repositories** controls which repositories count toward PR targets. Selecting an owner includes its current and future accessible repositories. Individual selections use GitHub repository IDs, so renaming a repository preserves its selection.

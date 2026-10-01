@@ -8,6 +8,10 @@ struct SettingsView: View {
   @State private var removing: AccountConnection?
   @State private var removalError: String?
 
+  private var dailyGoal: Binding<Int> {
+    Binding(get: { model.goals.daily }, set: { model.setDailyGoal($0) })
+  }
+
   var body: some View {
     Form {
       Section {
@@ -15,22 +19,17 @@ struct SettingsView: View {
           HStack {
             Text(period.targetLabel)
             Spacer()
-            TextField(
-              "Pull requests",
-              value: Binding(
-                get: { model.goals[period] }, set: { model.setGoal($0, for: period) }
-              ), format: .number.grouping(.never)
-            )
-            .labelsHidden().accessibilityLabel(period.targetLabel)
-            .multilineTextAlignment(.trailing).frame(width: 56)
-            .monospacedDigit()
-            Stepper(
-              period.targetLabel,
-              value: Binding(
-                get: { model.goals[period] }, set: { model.setGoal($0, for: period) }
-              ), in: 1...10_000
-            )
-            .labelsHidden().fixedSize()
+            if period == .day {
+              TextField("Pull requests", value: dailyGoal, format: .number.grouping(.never))
+                .labelsHidden().accessibilityLabel(period.targetLabel)
+                .multilineTextAlignment(.trailing).frame(width: 56)
+                .monospacedDigit()
+              Stepper(period.targetLabel, value: dailyGoal, in: Goals.dailyRange)
+                .labelsHidden().fixedSize()
+            } else {
+              Text(model.goals[period], format: .number.grouping(.never))
+                .monospacedDigit()
+            }
             Text("PRs").foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
           }
           .padding(.vertical, 4)
@@ -39,7 +38,7 @@ struct SettingsView: View {
         Text("Merged PR targets")
       } footer: {
         Text(
-          "PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
+          "Weekly and monthly targets follow your daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
         )
         .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
       }

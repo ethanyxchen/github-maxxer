@@ -45,31 +45,20 @@ public enum GoalPeriod: String, CaseIterable, Codable, Sendable, Identifiable {
 }
 
 public struct Goals: Codable, Sendable, Equatable {
-  public var daily: Int
-  public var weekly: Int
-  public var monthly: Int
+  public static let dailyRange = 1...10_000
+  public let daily: Int
+  public var weekly: Int { daily * 5 }
+  public var monthly: Int { daily * 20 }
 
-  public init(daily: Int = 1, weekly: Int = 5, monthly: Int = 20) {
-    self.daily = daily
-    self.weekly = weekly
-    self.monthly = monthly
+  public init(daily: Int = 1) {
+    self.daily = min(Self.dailyRange.upperBound, max(Self.dailyRange.lowerBound, daily))
   }
 
   public subscript(period: GoalPeriod) -> Int {
-    get {
-      switch period {
-      case .day: daily
-      case .week: weekly
-      case .month: monthly
-      }
-    }
-    set {
-      let value = max(1, newValue)
-      switch period {
-      case .day: daily = value
-      case .week: weekly = value
-      case .month: monthly = value
-      }
+    switch period {
+    case .day: daily
+    case .week: weekly
+    case .month: monthly
     }
   }
 }
