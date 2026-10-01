@@ -78,6 +78,7 @@ struct RootView: View {
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
       .navigationTitle((selection ?? .overview).title)
+      .toolbarBackground(.hidden, for: .windowToolbar)
       .toolbar {
         if model.isRefreshing {
           ToolbarItem { ProgressView().controlSize(.small).help("Refreshing GitHub activity") }
