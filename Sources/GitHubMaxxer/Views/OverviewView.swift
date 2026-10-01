@@ -193,17 +193,32 @@ struct PullRequestRow: View {
   let pull: MergedPullRequest
 
   var body: some View {
+    Link(destination: pull.url) {
+      content
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .onHover { hovering in
+      (hovering ? NSCursor.pointingHand : NSCursor.arrow).set()
+    }
+    .contextMenu {
+      Link("Open on GitHub", destination: pull.url)
+      Button("Copy link") {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(pull.url.absoluteString, forType: .string)
+      }
+    }
+    .accessibilityElement(children: .combine)
+  }
+
+  private var content: some View {
     HStack(alignment: .top, spacing: 12) {
       Image(systemName: "arrow.triangle.merge")
         .font(.system(size: 15, weight: .medium))
         .foregroundStyle(.purple).frame(width: 24).padding(.top, 2)
       VStack(alignment: .leading, spacing: 5) {
-        Link(destination: pull.url) {
-          Text(pull.title).font(.body.weight(.medium)).foregroundStyle(.primary)
-            .lineLimit(2).multilineTextAlignment(.leading)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(pull.title)
+        Text(pull.title).font(.body.weight(.medium)).foregroundStyle(.primary)
+          .lineLimit(2).multilineTextAlignment(.leading)
         HStack(spacing: 6) {
           Text(pull.repository.nameWithOwner).lineLimit(1).truncationMode(.middle)
             .help(pull.repository.nameWithOwner)
@@ -225,13 +240,5 @@ struct PullRequestRow: View {
       .help(pull.mergedAt.formatted(date: .complete, time: .shortened))
       .padding(.top, 3)
     }
-    .contextMenu {
-      Link("Open on GitHub", destination: pull.url)
-      Button("Copy link") {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(pull.url.absoluteString, forType: .string)
-      }
-    }
-    .accessibilityElement(children: .combine)
   }
 }
