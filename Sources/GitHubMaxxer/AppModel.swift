@@ -154,7 +154,7 @@ final class AppModel {
     persist()
   }
 
-  func refresh() async {
+  func refresh(authorizeKeychain: Bool = false) async {
     now = .now
     guard !isPreview, !isRefreshing, !isConnecting, !connections.isEmpty else { return }
     isRefreshing = true
@@ -165,7 +165,7 @@ final class AppModel {
       let requestedAt = Date.now
       do {
         try Task.checkCancellation()
-        let token = try credentials.read(for: account.id)
+        let token = try credentials.read(for: account.id, allowInteraction: authorizeKeychain)
         let snapshot = try await GitHubClient(token: token, session: session).snapshot(
           login: account.profile.login, now: requestedAt)
         guard let index = connections.firstIndex(where: { $0.id == account.id }) else { continue }

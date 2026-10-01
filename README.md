@@ -13,17 +13,18 @@ Requires macOS 14 or newer and Xcode 26 or newer with Swift 6.2.
 open 'build/Hammertime.app'
 ```
 
-You can copy the resulting app to Applications. Local builds use the trusted **Hammertime Development** code-signing certificate. Distributing the app to other Macs requires Developer ID signing and notarization.
+You can copy the resulting app to Applications. Quit Hammertime before building: the script stages and verifies the new bundle before replacing it, and refuses to overwrite a running app.
 
-Using the same certificate keeps the app's signing identity stable across builds so Keychain authorization can persist. To use another certificate, consistently build with its name or SHA-1 hash:
+For Keychain authorization to persist across builds, use an **Apple Development** certificate with a Team ID. Create one in **Xcode → Settings → Accounts → your Apple account → Manage Certificates → + → Apple Development**, then consistently build with its identity:
 
 ```sh
-CODESIGN_IDENTITY='your signing identity' ./scripts/build-app.sh
+CODESIGN_IDENTITY='Apple Development: your name (identity)' ./scripts/build-app.sh
 ```
 
-List available identities with `security find-identity -v -p codesigning`. In Keychain Access, open the certificate, expand **Trust**, and set **Code Signing** to **Always Trust**. The first build with a new signing identity may still need Keychain approval. The build fails if the selected certificate is unavailable.
+List available identities with `security find-identity -v -p codesigning`. The first build with a new identity may need Keychain approval. Reconnect the GitHub account to save its credential with the current app's access description. Distributing the app to other Macs requires Developer ID signing and notarization.
 
-For an ad hoc build, explicitly set `CODESIGN_IDENTITY=-`. Its signing identity changes with each build, so macOS may ask again before it can read saved GitHub credentials.
+Local builds currently default to the trusted **Hammertime Development** self-signed certificate. This does **not** make Keychain approval stable: macOS assigns these builds a code-hash partition, which changes on rebuild. Ad hoc builds (`CODESIGN_IDENTITY=-`) have the same limitation. Automatic refresh reports missing authorization inside the app; only an explicit **Refresh** permits a Keychain authorization dialog.
+
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 

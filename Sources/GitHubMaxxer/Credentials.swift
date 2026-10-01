@@ -1,6 +1,7 @@
 import Foundation
 import Security
 
+@MainActor
 struct CredentialStore {
   private let service: String
 
@@ -14,15 +15,38 @@ struct CredentialStore {
     ]
     let status = SecItemUpdate(query(id) as CFDictionary, attributes as CFDictionary)
     if status == errSecItemNotFound {
+      var access: SecAccess?
+      try check(SecAccessCreate("Hammertime" as CFString, nil, &access))
       var item = query(id).merging(attributes) { _, value in value }
+      item[kSecAttrAccess] = access!
       item[kSecAttrAccessible] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
       try check(SecItemAdd(item as CFDictionary, nil))
     } else {
       try check(status)
+      var item = query(id)
+      item[kSecReturnRef] = true
+      var reference: CFTypeRef?
+      try check(SecItemCopyMatching(item as CFDictionary, &reference))
+      let keychainItem = reference as! SecKeychainItem
+      var access: SecAccess?
+      try check(SecKeychainItemCopyAccess(keychainItem, &access))
+      let entries = SecAccessCopyMatchingACLList(access!, kSecACLAuthorizationDecrypt) as! [SecACL]
+      for entry in entries {
+        var applications: CFArray?
+        var description: CFString?
+        var prompt = SecKeychainPromptSelector()
+        try check(SecACLCopyContents(entry, &applications, &description, &prompt))
+        try check(SecACLSetContents(entry, applications, "Hammertime" as CFString, prompt))
+      }
+      try check(SecKeychainItemSetAccess(keychainItem, access!))
     }
   }
 
-  func read(for id: UUID) throws -> String {
+  func read(for id: UUID, allowInteraction: Bool = false) throws -> String {
+    var interactionAllowed = DarwinBoolean(false)
+    try check(SecKeychainGetUserInteractionAllowed(&interactionAllowed))
+    try check(SecKeychainSetUserInteractionAllowed(allowInteraction))
+    defer { SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue) }
     var item = query(id)
     item[kSecReturnData] = true
     item[kSecMatchLimit] = kSecMatchLimitOne
@@ -54,6 +78,8 @@ enum CredentialError: LocalizedError {
 
   var errorDescription: String? {
     switch self {
+    case .keychain(errSecInteractionNotAllowed), .keychain(errSecAuthFailed):
+      "Keychain authorization is needed. Click Refresh to allow Hammertime to use this connection."
     case .keychain(let status):
       "Keychain could not access this connection (\(status)). Unlock your Mac or reconnect the account."
     case .invalidData: "This saved credential could not be read. Reconnect the account."

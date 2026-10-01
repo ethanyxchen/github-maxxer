@@ -85,6 +85,10 @@ struct AppModelTests {
   }
 
   @Test func keychainSupportsReplacementAndRemoval() throws {
+    var interactionAllowed = DarwinBoolean(false)
+    #expect(SecKeychainGetUserInteractionAllowed(&interactionAllowed) == errSecSuccess)
+    #expect(SecKeychainSetUserInteractionAllowed(false) == errSecSuccess)
+    defer { SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue) }
     let service = "com.ethanyxchen.github-maxxer.tests"
     let store = CredentialStore(service: service)
     let id = UUID()
@@ -95,8 +99,12 @@ struct AppModelTests {
       kSecClass: kSecClassGenericPassword, kSecAttrService: service,
       kSecAttrAccount: id.uuidString,
     ]
+    var previousAccess: SecAccess?
+    #expect(SecAccessCreate("Previous name" as CFString, nil, &previousAccess) == errSecSuccess)
     #expect(
-      SecItemUpdate(query as CFDictionary, [kSecAttrLabel: "Previous name"] as CFDictionary)
+      SecItemUpdate(
+        query as CFDictionary,
+        [kSecAttrLabel: "Previous name", kSecAttrAccess: previousAccess!] as CFDictionary)
         == errSecSuccess)
     try store.save("replacement", for: id)
     #expect(try store.read(for: id) == "replacement")
@@ -104,8 +112,56 @@ struct AppModelTests {
     var attributes: CFTypeRef?
     #expect(SecItemCopyMatching(query as CFDictionary, &attributes) == errSecSuccess)
     #expect((attributes as? [CFString: Any])?[kSecAttrLabel] as? String == "Hammertime")
+    query[kSecReturnRef] = true
+    var item: CFTypeRef?
+    #expect(SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess)
+    let reference = (item as! [CFString: Any])[kSecValueRef] as! SecKeychainItem
+    var access: SecAccess?
+    #expect(SecKeychainItemCopyAccess(reference, &access) == errSecSuccess)
+    let entries = SecAccessCopyMatchingACLList(access!, kSecACLAuthorizationDecrypt) as! [SecACL]
+    for entry in entries {
+      var applications: CFArray?
+      var description: CFString?
+      var prompt = SecKeychainPromptSelector()
+      #expect(SecACLCopyContents(entry, &applications, &description, &prompt) == errSecSuccess)
+      #expect(description as String? == "Hammertime")
+      #expect((applications as? [SecTrustedApplication])?.isEmpty == false)
+    }
     try store.delete(for: id)
     #expect(throws: CredentialError.self) { try store.read(for: id) }
+  }
+
+  @Test func backgroundCredentialReadDoesNotRequestAuthorization() throws {
+    var interactionAllowed = DarwinBoolean(false)
+    #expect(SecKeychainGetUserInteractionAllowed(&interactionAllowed) == errSecSuccess)
+    #expect(SecKeychainSetUserInteractionAllowed(false) == errSecSuccess)
+    defer { SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue) }
+    let service = "com.ethanyxchen.github-maxxer.tests"
+    let id = UUID()
+    let store = CredentialStore(service: service)
+    var access: SecAccess?
+    #expect(
+      SecAccessCreate("Test authorization" as CFString, [] as CFArray, &access) == errSecSuccess)
+    let item: [CFString: Any] = [
+      kSecClass: kSecClassGenericPassword, kSecAttrService: service,
+      kSecAttrAccount: id.uuidString, kSecAttrAccess: access!,
+      kSecValueData: Data("test-credential".utf8),
+    ]
+    #expect(SecItemAdd(item as CFDictionary, nil) == errSecSuccess)
+    defer {
+      SecKeychainSetUserInteractionAllowed(false)
+      try? store.delete(for: id)
+    }
+    #expect(SecKeychainSetUserInteractionAllowed(true) == errSecSuccess)
+    do {
+      _ = try store.read(for: id)
+      Issue.record("Reading a protected credential must require explicit authorization")
+    } catch CredentialError.keychain(let status) {
+      #expect([errSecInteractionNotAllowed, errSecAuthFailed].contains(status))
+    }
+    var restoredInteraction = DarwinBoolean(false)
+    #expect(SecKeychainGetUserInteractionAllowed(&restoredInteraction) == errSecSuccess)
+    #expect(restoredInteraction.boolValue)
   }
 
   @Test func failedRefreshPreservesSnapshotAndReportsError() async throws {

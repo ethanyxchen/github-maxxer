@@ -85,7 +85,7 @@ struct RootView: View {
         }
         ToolbarItem {
           Button {
-            Task { await model.refresh() }
+            Task { await model.refresh(authorizeKeychain: true) }
           } label: {
             Label("Refresh", systemImage: "arrow.clockwise")
           }
