@@ -25,7 +25,7 @@ if [[ -n "${GITHUB_OAUTH_CLIENT_ID:-}" ]]; then
 fi
 cp Resources/AppIcon.icns "$app_bundle/Contents/Resources/AppIcon.icns"
 plutil -lint "$app_bundle/Contents/Info.plist"
-codesign --force --sign "${CODESIGN_IDENTITY:-Hammertime Development}" "$app_bundle"
+codesign --force --sign "${CODESIGN_IDENTITY:-Apple Development}" "$app_bundle"
 codesign --verify --deep --strict "$app_bundle"
 require_app_stopped
 rm -rf "$destination"

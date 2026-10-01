@@ -15,7 +15,7 @@ open 'build/Hammertime.app'
 
 You can copy the resulting app to Applications. Quit Hammertime before building: the script stages and verifies the new bundle before replacing it, and refuses to overwrite a running app.
 
-For Keychain authorization to persist across builds, use an **Apple Development** certificate with a Team ID. Create one in **Xcode → Settings → Accounts → your Apple account → Manage Certificates → + → Apple Development**, then consistently build with its identity:
+Local builds use an **Apple Development** certificate with a Team ID so Keychain authorization can persist across builds. Create one in **Xcode → Settings → Apple Accounts → your Apple account → Personal Team → Manage Certificates → + → Apple Development**. If you have multiple signing identities, select one consistently:
 
 ```sh
 CODESIGN_IDENTITY='Apple Development: your name (identity)' ./scripts/build-app.sh
@@ -23,8 +23,7 @@ CODESIGN_IDENTITY='Apple Development: your name (identity)' ./scripts/build-app.
 
 List available identities with `security find-identity -v -p codesigning`. The first build with a new identity may need Keychain approval. Reconnect the GitHub account to save its credential with the current app's access description. Distributing the app to other Macs requires Developer ID signing and notarization.
 
-Local builds currently default to the trusted **Hammertime Development** self-signed certificate. This does **not** make Keychain approval stable: macOS assigns these builds a code-hash partition, which changes on rebuild. Ad hoc builds (`CODESIGN_IDENTITY=-`) have the same limitation. Automatic refresh reports missing authorization inside the app; only an explicit **Refresh** permits a Keychain authorization dialog.
-
+Self-signed and ad hoc builds (`CODESIGN_IDENTITY=-`) do not preserve Keychain approval across rebuilds because their code-hash partition changes. Automatic refresh reports missing authorization inside the app; only an explicit **Refresh** permits a Keychain authorization dialog.
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 
