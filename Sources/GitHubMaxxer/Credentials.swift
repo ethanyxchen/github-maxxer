@@ -9,13 +9,13 @@ struct CredentialStore {
   }
 
   func save(_ token: String, for id: UUID) throws {
-    let data = Data(token.utf8)
-    let status = SecItemUpdate(query(id) as CFDictionary, [kSecValueData: data] as CFDictionary)
+    let attributes: [CFString: Any] = [
+      kSecValueData: Data(token.utf8), kSecAttrLabel: "Hammertime",
+    ]
+    let status = SecItemUpdate(query(id) as CFDictionary, attributes as CFDictionary)
     if status == errSecItemNotFound {
-      var item = query(id)
-      item[kSecValueData] = data
+      var item = query(id).merging(attributes) { _, value in value }
       item[kSecAttrAccessible] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-      item[kSecAttrLabel] = "Hammertime"
       try check(SecItemAdd(item as CFDictionary, nil))
     } else {
       try check(status)

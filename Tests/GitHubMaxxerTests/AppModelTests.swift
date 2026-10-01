@@ -1,5 +1,6 @@
 import Foundation
 import GitHubMaxxerCore
+import Security
 import Testing
 
 @testable import GitHubMaxxer
@@ -84,13 +85,25 @@ struct AppModelTests {
   }
 
   @Test func keychainSupportsReplacementAndRemoval() throws {
-    let store = CredentialStore(service: "com.ethanyxchen.github-maxxer.tests")
+    let service = "com.ethanyxchen.github-maxxer.tests"
+    let store = CredentialStore(service: service)
     let id = UUID()
     defer { try? store.delete(for: id) }
     try store.save("test-credential", for: id)
     #expect(try store.read(for: id) == "test-credential")
+    var query: [CFString: Any] = [
+      kSecClass: kSecClassGenericPassword, kSecAttrService: service,
+      kSecAttrAccount: id.uuidString,
+    ]
+    #expect(
+      SecItemUpdate(query as CFDictionary, [kSecAttrLabel: "Previous name"] as CFDictionary)
+        == errSecSuccess)
     try store.save("replacement", for: id)
     #expect(try store.read(for: id) == "replacement")
+    query[kSecReturnAttributes] = true
+    var attributes: CFTypeRef?
+    #expect(SecItemCopyMatching(query as CFDictionary, &attributes) == errSecSuccess)
+    #expect((attributes as? [CFString: Any])?[kSecAttrLabel] as? String == "Hammertime")
     try store.delete(for: id)
     #expect(throws: CredentialError.self) { try store.read(for: id) }
   }
