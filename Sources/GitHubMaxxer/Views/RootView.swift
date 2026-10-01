@@ -48,16 +48,18 @@ struct RootView: View {
       .listStyle(.sidebar)
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
       .safeAreaInset(edge: .bottom) {
-        Button {
-          connectionDraft = ConnectionDraft()
-        } label: {
-          Label("Connect GitHub", systemImage: "plus")
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 6)
+        if model.connections.isEmpty {
+          Button {
+            connectionDraft = ConnectionDraft()
+          } label: {
+            Label("Connect GitHub", systemImage: "plus")
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(.vertical, 6)
+          }
+          .buttonStyle(.plain)
+          .padding(16)
+          .disabled(model.isPreview)
         }
-        .buttonStyle(.plain)
-        .padding(16)
-        .disabled(model.isPreview)
       }
     } detail: {
       VStack(spacing: 0) {
