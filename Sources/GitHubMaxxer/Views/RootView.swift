@@ -46,6 +46,7 @@ struct RootView: View {
         }
       }
       .listStyle(.sidebar)
+      .background(SidebarResizeBehavior())
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
       .safeAreaInset(edge: .bottom) {
         if model.connections.isEmpty {
