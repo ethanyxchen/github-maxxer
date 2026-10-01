@@ -1,4 +1,4 @@
-# GitHub Maxxer
+# Hammertime
 
 A native macOS app for tracking the pull requests you merge, across personal projects and work repositories.
 
@@ -10,10 +10,18 @@ Requires macOS 14 or newer and Xcode 26 or newer with Swift 6.2.
 
 ```sh
 ./scripts/build-app.sh
-open 'build/GitHub Maxxer.app'
+open 'build/Hammertime.app'
 ```
 
 You can copy the resulting app to Applications. This local build is ad hoc signed; distributing it to other Macs requires Developer ID signing and notarization.
+
+Ad hoc signatures change with each build, so macOS may ask again before the rebuilt app can read saved GitHub credentials. To keep Keychain authorization across builds, install a code-signing certificate and consistently build with its name or SHA-1 hash:
+
+```sh
+CODESIGN_IDENTITY='your signing identity' ./scripts/build-app.sh
+```
+
+List available identities with `security find-identity -v -p codesigning`. The first build with a new signing identity may still need Keychain approval.
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 
@@ -29,19 +37,19 @@ Credentials are saved in macOS Keychain after the app validates the account and 
 
 ### One-time setup for the app owner
 
-Browser sign in uses [GitHub's OAuth device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow). The standard build includes GitHub Maxxer's registered public Client ID, so you can sign in immediately. End users do not need to register an app.
+Browser sign in uses [GitHub's OAuth device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow). The standard build includes Hammertime's registered public Client ID, so you can sign in immediately. End users do not need to register an app.
 
 To use your own OAuth app for a fork:
 
 1. Open [Register a new OAuth application](https://github.com/settings/applications/new).
-2. Set the name to **GitHub Maxxer** and homepage to `https://github.com/ethanyxchen/github-maxxer`.
+2. Set the name to **Hammertime** and homepage to `https://github.com/ethanyxchen/github-maxxer`.
 3. Set the required callback URL to `https://github.com/ethanyxchen/github-maxxer`. Device flow does not use a callback.
 4. Register the app and enable **Device Flow** in its settings. Use default non-expiring tokens.
 5. Copy the public **Client ID**, then build:
 
 ```sh
 GITHUB_OAUTH_CLIENT_ID=your_client_id ./scripts/build-app.sh
-open 'build/GitHub Maxxer.app'
+open 'build/Hammertime.app'
 ```
 
 The build embeds the public Client ID in the app bundle; the environment variable overrides the registered app for custom builds. No client secret is needed or shipped. For `swift run` or Xcode development, set the same environment variable because those executables do not use the packaged app's Info.plist.
@@ -49,6 +57,7 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 ## How activity is counted
 
 - Edit the daily PR target in **Targets & Accounts**. Weekly and monthly targets update automatically using 5 days per week and 20 days per month: a daily target of 3 gives weekly and monthly targets of 15 and 60.
+- Click **Today**, **This week**, or **This month** to see the merged PRs counted in that tile. Each list shows titles, repository, PR number, visibility, and merge time; scroll to see more than five rows.
 - Targets count PRs **you authored**, using the time they were **merged**, including merges performed by someone else. Closed but unmerged PRs do not count.
 - Daily and monthly targets use your Mac's time zone. Weeks start Monday.
 - **Repositories** controls which repositories count toward PR targets. Selecting an owner includes its current and future accessible repositories. Individual selections use GitHub repository IDs, so renaming a repository preserves its selection.
@@ -74,7 +83,7 @@ bash -n scripts/build-app.sh scripts/update-icon.sh
 Run a read only integration check with your existing GitHub CLI session:
 
 ```sh
-swift run GitHubMaxxer --verify-github
+swift run Hammertime --verify-github
 ```
 
 It prints account identity and counts, never credentials, and does not save a connection.
@@ -82,7 +91,7 @@ It prints account identity and counts, never credentials, and does not save a co
 For a labeled dashboard with sample activity and no account reads or writes:
 
 ```sh
-swift run GitHubMaxxer --preview
+swift run Hammertime --preview
 ```
 
 Use `--preview-dark` instead to inspect dark appearance without changing system settings.

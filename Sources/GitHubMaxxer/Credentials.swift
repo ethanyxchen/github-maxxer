@@ -15,7 +15,7 @@ struct CredentialStore {
       var item = query(id)
       item[kSecValueData] = data
       item[kSecAttrAccessible] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-      item[kSecAttrLabel] = "GitHub Maxxer"
+      item[kSecAttrLabel] = "Hammertime"
       try check(SecItemAdd(item as CFDictionary, nil))
     } else {
       try check(status)

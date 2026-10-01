@@ -7,18 +7,11 @@ struct PullRequestsView: View {
   @State private var period: GoalPeriod?
 
   private var pulls: [MergedPullRequest] {
-    model.pullRequests.filter { pull in
-      let matchesSearch =
-        search.isEmpty || pull.title.localizedCaseInsensitiveContains(search)
+    let pulls = period.map { model.pullRequests(for: $0) } ?? model.pullRequests
+    return pulls.filter { pull in
+      search.isEmpty || pull.title.localizedCaseInsensitiveContains(search)
         || pull.repository.nameWithOwner.localizedCaseInsensitiveContains(search)
         || "#\(pull.number)".contains(search)
-      let matchesPeriod =
-        period.map {
-          let interval = $0.interval(containing: model.now)
-          return pull.mergedAt >= interval.start && pull.mergedAt < interval.end
-            && pull.mergedAt <= model.now
-        } ?? true
-      return matchesSearch && matchesPeriod
     }
   }
 

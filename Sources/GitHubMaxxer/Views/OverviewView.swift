@@ -65,8 +65,28 @@ private struct GoalCard: View {
   let period: GoalPeriod
   let progress: GoalProgress
   let now: Date
+  @State private var showingPulls = false
+  @State private var isHovering = false
 
   var body: some View {
+    Button {
+      showingPulls = true
+    } label: {
+      content
+    }
+    .buttonStyle(.plain)
+    .help("Show merged PRs for \(period.title.lowercased())")
+    .accessibilityElement(children: .ignore)
+    .accessibilityAddTraits(.isButton)
+    .accessibilityLabel("\(period.title): \(progress.count) merged PRs, target \(progress.target)")
+    .accessibilityHint("Show merged pull requests")
+    .onHover { isHovering = $0 }
+    .popover(isPresented: $showingPulls, arrowEdge: .bottom) {
+      PeriodPullRequestsView(period: period)
+    }
+  }
+
+  private var content: some View {
     VStack(alignment: .leading, spacing: 16) {
       HStack {
         Text(period.title).font(.headline)
@@ -85,28 +105,88 @@ private struct GoalCard: View {
       }
       .monospacedDigit()
       ProgressView(value: progress.fraction)
-        .tint(.green).accessibilityLabel("\(period.title) target")
-        .accessibilityValue("\(progress.count) of \(progress.target) merged pull requests")
+        .tint(.green)
       VStack(alignment: .leading, spacing: 4) {
         Text(progress.isComplete ? "Target reached" : "\(progress.remaining) to go")
           .font(.callout.weight(.medium))
-        Text(dateLabel).font(.caption).foregroundStyle(.secondary)
+        HStack {
+          Text(periodDateLabel(period, now: now))
+          Spacer(minLength: 4)
+          Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
+        }
+        .font(.caption).foregroundStyle(.secondary)
       }
     }
     .padding(18)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(.background, in: RoundedRectangle(cornerRadius: 10))
-    .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(.separator.opacity(0.6)) }
+    .overlay {
+      RoundedRectangle(cornerRadius: 10).strokeBorder(
+        isHovering ? Color.accentColor.opacity(0.5) : Color(nsColor: .separatorColor).opacity(0.6))
+    }
+    .contentShape(RoundedRectangle(cornerRadius: 10))
   }
 
-  private var dateLabel: String {
-    let interval = period.interval(containing: now)
-    if period == .day { return now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) }
-    if period == .month { return now.formatted(.dateTime.month(.wide).year()) }
-    let last = interval.end.addingTimeInterval(-1)
-    return
-      "\(interval.start.formatted(.dateTime.month(.abbreviated).day())) – \(last.formatted(.dateTime.month(.abbreviated).day()))"
+}
+
+private struct PeriodPullRequestsView: View {
+  @Environment(AppModel.self) private var model
+  let period: GoalPeriod
+  private let rowHeight: CGFloat = 64
+
+  var body: some View {
+    let pulls = model.pullRequests(for: period)
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: 5) {
+          Text("\(period.title) · merged PRs").font(.headline)
+          Text(periodDateLabel(period, now: model.now))
+            .font(.caption).foregroundStyle(.secondary)
+        }
+        Spacer()
+        Text(pulls.count, format: .number)
+          .font(.title2.weight(.medium)).monospacedDigit().foregroundStyle(.secondary)
+      }
+      .padding(16)
+      Divider()
+      if pulls.isEmpty {
+        ContentUnavailableView(
+          "No merged PRs", systemImage: "arrow.triangle.merge",
+          description: Text("No PRs were merged in your tracked repositories during this period.")
+        )
+        .frame(height: 180)
+      } else {
+        ScrollView {
+          LazyVStack(spacing: 0) {
+            ForEach(pulls) { pull in
+              PullRequestRow(pull: pull)
+                .padding(.horizontal, 20)
+                .frame(height: rowHeight)
+                .overlay(alignment: .bottom) {
+                  if pull.id != pulls.last?.id { Divider().padding(.leading, 56) }
+                }
+            }
+          }
+        }
+        .frame(height: CGFloat(min(pulls.count, 5)) * rowHeight)
+        .scrollIndicators(.visible)
+      }
+      Divider()
+      Text("\(pulls.count.formatted()) merged PRs · Newest first")
+        .font(.caption).foregroundStyle(.secondary)
+        .padding(.horizontal, 20).padding(.vertical, 12)
+    }
+    .frame(width: 620)
   }
+}
+
+private func periodDateLabel(_ period: GoalPeriod, now: Date) -> String {
+  let interval = period.interval(containing: now)
+  if period == .day { return now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) }
+  if period == .month { return now.formatted(.dateTime.month(.wide).year()) }
+  let last = interval.end.addingTimeInterval(-1)
+  return
+    "\(interval.start.formatted(.dateTime.month(.abbreviated).day())) – \(last.formatted(.dateTime.month(.abbreviated).day()))"
 }
 
 struct PullRequestRow: View {
@@ -123,18 +203,27 @@ struct PullRequestRow: View {
             .lineLimit(2).multilineTextAlignment(.leading)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(pull.title)
         HStack(spacing: 6) {
-          Text(pull.repository.nameWithOwner)
-          Text("#\(pull.number)")
-          if pull.repository.isPrivate { Image(systemName: "lock").font(.caption2) }
+          Text(pull.repository.nameWithOwner).lineLimit(1).truncationMode(.middle)
+            .help(pull.repository.nameWithOwner)
+          Text("#\(String(pull.number))").fixedSize()
+          if pull.repository.isPrivate {
+            Label("Private", systemImage: "lock").fixedSize()
+          } else {
+            Text("Public").fixedSize()
+          }
         }
         .font(.caption).foregroundStyle(.secondary)
       }
       Spacer(minLength: 12)
-      Text(pull.mergedAt, format: .relative(presentation: .named))
-        .font(.caption).foregroundStyle(.secondary)
-        .help(pull.mergedAt.formatted(date: .complete, time: .shortened))
-        .padding(.top, 3)
+      VStack(alignment: .trailing, spacing: 3) {
+        Text(pull.mergedAt, format: .dateTime.month(.abbreviated).day())
+        Text(pull.mergedAt, format: .dateTime.hour().minute())
+      }
+      .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+      .help(pull.mergedAt.formatted(date: .complete, time: .shortened))
+      .padding(.top, 3)
     }
     .contextMenu {
       Link("Open on GitHub", destination: pull.url)

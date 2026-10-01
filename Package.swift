@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-  name: "GitHubMaxxer",
+  name: "Hammertime",
   platforms: [.macOS(.v14)],
   products: [
-    .executable(name: "GitHubMaxxer", targets: ["GitHubMaxxer"])
+    .executable(name: "Hammertime", targets: ["GitHubMaxxer"])
   ],
   targets: [
     .target(name: "GitHubMaxxerCore"),

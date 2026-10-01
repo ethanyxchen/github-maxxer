@@ -102,7 +102,7 @@ public struct GitHubOAuth: Sendable {
     request.cachePolicy = .reloadIgnoringLocalCacheData
     request.setValue("application/json", forHTTPHeaderField: "Accept")
     request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-    request.setValue("GitHubMaxxer", forHTTPHeaderField: "User-Agent")
+    request.setValue("Hammertime", forHTTPHeaderField: "User-Agent")
     request.httpBody = form.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(
       using: .utf8)
     let (data, http) = try await send(request)
@@ -146,7 +146,7 @@ public enum GitHubOAuthError: LocalizedError, Equatable {
   public var errorDescription: String? {
     switch self {
     case .missingClientID:
-      "Browser sign in needs a registered GitHub OAuth app. Configure its Client ID when building GitHub Maxxer."
+      "Browser sign in needs a registered GitHub OAuth app. Configure its Client ID when building Hammertime."
     case .invalidClientID:
       "GitHub did not recognize this app's Client ID. Check its OAuth app registration."
     case .deviceFlowDisabled:

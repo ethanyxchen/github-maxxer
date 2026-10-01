@@ -127,7 +127,7 @@ public struct GitHubClient: Sendable {
     request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-    request.setValue("GitHubMaxxer", forHTTPHeaderField: "User-Agent")
+    request.setValue("Hammertime", forHTTPHeaderField: "User-Agent")
     request.httpBody = try JSONEncoder().encode(GraphQLRequest(query: query, variables: variables))
     let (data, response) = try await session.data(for: request)
     guard let response = response as? HTTPURLResponse else { throw GitHubError.invalidResponse }

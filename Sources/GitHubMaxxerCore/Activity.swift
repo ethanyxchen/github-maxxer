@@ -37,10 +37,16 @@ public enum GoalPeriod: String, CaseIterable, Codable, Sendable, Identifiable {
   public func count(in pullRequests: [MergedPullRequest], now: Date, calendar: Calendar = .current)
     -> Int
   {
+    self.pullRequests(in: pullRequests, now: now, calendar: calendar).count
+  }
+
+  public func pullRequests(
+    in pullRequests: [MergedPullRequest], now: Date, calendar: Calendar = .current
+  ) -> [MergedPullRequest] {
     let interval = interval(containing: now, calendar: calendar)
     return pullRequests.filter {
       $0.mergedAt >= interval.start && $0.mergedAt < interval.end && $0.mergedAt <= now
-    }.count
+    }
   }
 }
 

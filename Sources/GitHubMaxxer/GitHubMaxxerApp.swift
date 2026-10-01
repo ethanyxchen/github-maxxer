@@ -14,7 +14,7 @@ struct GitHubMaxxerApp: App {
   }
 
   var body: some Scene {
-    Window("GitHub Maxxer", id: "main") {
+    Window("Hammertime", id: "main") {
       RootView().environment(model)
         .preferredColorScheme(previewColorScheme)
     }
@@ -23,7 +23,7 @@ struct GitHubMaxxerApp: App {
       CommandGroup(replacing: .newItem) {}
       CommandGroup(after: .appInfo) {
         Link(
-          "GitHub Maxxer on GitHub",
+          "Hammertime on GitHub",
           destination: URL(string: "https://github.com/ethanyxchen/github-maxxer")!)
       }
     }
@@ -32,7 +32,7 @@ struct GitHubMaxxerApp: App {
         .preferredColorScheme(previewColorScheme)
         .frame(width: 580, height: 580)
     }
-    MenuBarExtra("GitHub Maxxer", systemImage: "arrow.triangle.pull") {
+    MenuBarExtra("Hammertime", systemImage: "arrow.triangle.pull") {
       MenuBarView().environment(model)
     }
   }
@@ -48,7 +48,7 @@ private struct MenuBarView: View {
       Text("\(period.title): \(progress.count) / \(progress.target) PRs")
     }
     Divider()
-    Button("Open GitHub Maxxer") {
+    Button("Open Hammertime") {
       openWindow(id: "main")
       NSApplication.shared.activate(ignoringOtherApps: true)
     }
@@ -57,7 +57,7 @@ private struct MenuBarView: View {
         model.isRefreshing || model.isConnecting || model.connections.isEmpty || model.isPreview)
     SettingsLink()
     Divider()
-    Button("Quit GitHub Maxxer") { NSApplication.shared.terminate(nil) }
+    Button("Quit Hammertime") { NSApplication.shared.terminate(nil) }
   }
 }
 

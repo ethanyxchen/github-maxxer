@@ -89,7 +89,11 @@ final class AppModel {
   }
 
   func progress(for period: GoalPeriod) -> GoalProgress {
-    GoalProgress(count: period.count(in: pullRequests, now: now), target: goals[period])
+    GoalProgress(count: pullRequests(for: period).count, target: goals[period])
+  }
+
+  func pullRequests(for period: GoalPeriod) -> [MergedPullRequest] {
+    period.pullRequests(in: pullRequests, now: now)
   }
 
   func setDailyGoal(_ value: Int) {

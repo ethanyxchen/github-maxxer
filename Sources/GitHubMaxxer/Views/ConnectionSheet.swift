@@ -32,7 +32,7 @@ struct ConnectionSheet: View {
       .disabled(phase.isBusy)
       Text(
         includePrivateRepositories
-          ? "GitHub requires a permission that includes repository write access to read private activity. GitHub Maxxer only reads your data. Your organization may require approval or SSO."
+          ? "GitHub requires a permission that includes repository write access to read private activity. Hammertime only reads your data. Your organization may require approval or SSO."
           : "Browser sign in will connect your public activity and organization memberships. Private repositories will not be included."
       )
       .font(.callout).foregroundStyle(.secondary)

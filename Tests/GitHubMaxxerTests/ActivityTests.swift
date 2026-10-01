@@ -50,6 +50,20 @@ struct ActivityTests {
     #expect(GoalPeriod.week.count(in: pulls, now: now, calendar: calendar) == 1)
   }
 
+  @Test func calendarWeekListExcludesPreviousWeekAndFutureMerges() {
+    let now = date("2026-10-01T12:00:00Z")
+    let pulls = [
+      pull("now", "2026-10-01T12:00:00Z"),
+      pull("monday", "2026-09-27T23:00:00Z"),
+      pull("sunday", "2026-09-27T22:59:59Z"),
+      pull("friday", "2026-09-25T12:00:00Z"),
+      pull("future", "2026-10-01T13:00:00Z"),
+    ]
+    let selected = GoalPeriod.week.pullRequests(in: pulls, now: now, calendar: calendar)
+    #expect(selected.map(\.id) == ["now", "monday"])
+    #expect(selected.count == GoalPeriod.week.count(in: pulls, now: now, calendar: calendar))
+  }
+
   @Test func monthUsesLocalCalendarBoundary() {
     let now = date("2026-10-01T12:00:00Z")
     let pulls = [
