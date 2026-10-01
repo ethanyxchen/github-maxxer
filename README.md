@@ -31,7 +31,7 @@ Choose **Connect GitHub**, name the connection Personal or Work, and click **Sig
 
 **Include private repositories** requests GitHub's `repo`, `read:user`, and `read:org` OAuth scopes. GitHub's `repo` permission also grants write access; this app only reads data. Turn the option off to request just `read:user` and `read:org` for public activity. Organizations may require approval or SSO authorization before private activity is accessible.
 
-Credentials are saved in macOS Keychain after the app validates the account and loads its activity. You can add multiple accounts or several connections for the same account with different repository selections. Overlapping PRs count once. Reconnect or disconnect from **Targets & Accounts**. Disconnect removes the local credential; revoke the app's access separately in GitHub's authorized applications settings if desired.
+Credentials are saved in macOS Keychain after the app validates the account and loads its activity. You can add multiple GitHub accounts. Signing in to the same account again updates its credential and activity while keeping its name and repository selections. Reconnect or disconnect from **Targets & Accounts**. Disconnect removes the local credential; revoke the app's access separately in GitHub's authorized applications settings if desired.
 
 **Use GitHub CLI** imports the account already signed in to `github.com` through `gh auth login`. This option uses your CLI credential's existing permissions rather than the private repositories toggle, which configures browser sign in only.
 

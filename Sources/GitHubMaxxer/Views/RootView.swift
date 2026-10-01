@@ -44,29 +44,6 @@ struct RootView: View {
           navigationRow(.repositories)
           navigationRow(.settings)
         }
-        if !model.connections.isEmpty {
-          Section("Connected") {
-            ForEach(model.connections) { connection in
-              HStack(spacing: 9) {
-                Image(systemName: "person.crop.circle")
-                  .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                  Text(connection.label).lineLimit(1)
-                  Text("@\(connection.profile.login)")
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                }
-                Spacer(minLength: 0)
-                if model.connectionErrors[connection.id] != nil {
-                  Image(systemName: "exclamationmark.circle.fill")
-                    .foregroundStyle(.orange)
-                    .help(model.connectionErrors[connection.id] ?? "")
-                }
-              }
-              .padding(.vertical, 3)
-              .accessibilityElement(children: .combine)
-            }
-          }
-        }
       }
       .listStyle(.sidebar)
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)

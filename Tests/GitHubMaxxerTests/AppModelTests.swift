@@ -6,6 +6,42 @@ import Testing
 
 @MainActor
 struct AppModelTests {
+  @Test func signingInAgainUpdatesAccountByGitHubID() async throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let connection = AccountConnection(
+      id: UUID(), label: "Work", profile: sample.profile,
+      scope: RepositoryScope(allRepositories: false, owners: ["northstar"]),
+      snapshot: sample.snapshot)
+    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    let store = CredentialStore(service: "com.ethanyxchen.github-maxxer.tests")
+    try store.save("oauth-credential", for: connection.id)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [SignedInProtocol.self]
+    let model = AppModel(
+      stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+    defer {
+      for id in Set(model.connections.map(\.id) + [connection.id]) {
+        try? store.delete(for: id)
+      }
+    }
+
+    try await model.connect(token: "cli-credential", label: "")
+
+    #expect(model.connections.count == 1)
+    #expect(model.connections[0].id == connection.id)
+    #expect(model.connections[0].profile.login == "renamed-user")
+    #expect(model.connections[0].scope == connection.scope)
+    #expect(model.connections[0].label == connection.label)
+    #expect(try store.read(for: connection.id) == "cli-credential")
+    let reloaded = AppModel(stateURL: url)
+    #expect(reloaded.connections.count == 1)
+    #expect(reloaded.connections[0].id == connection.id)
+  }
+
   @Test func dailyGoalUpdatesWeeklyAndMonthlyTargets() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -90,6 +126,44 @@ struct AppModelTests {
 private struct FixtureState: Encodable {
   let goals: Goals
   let connections: [AccountConnection]
+}
+
+private final class SignedInProtocol: URLProtocol, @unchecked Sendable {
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    do {
+      let query = try requestBody(request)["query"] as! String
+      let body: String
+      if query.contains("contributionsCollection") {
+        body = """
+          {"data":{"viewer":{"contributionsCollection":{"contributionCalendar":{"totalContributions":0,"weeks":[]}}}}}
+          """
+      } else if query.contains("repositories(first") {
+        body = """
+          {"data":{"viewer":{"repositories":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
+          """
+      } else if query.contains("search(query") {
+        body = """
+          {"data":{"search":{"issueCount":0,"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}
+          """
+      } else {
+        body = """
+          {"data":{"viewer":{"id":"preview-user","login":"renamed-user","name":null,"avatarUrl":"https://github.com/renamed-user.png"}}}
+          """
+      }
+      client?.urlProtocol(
+        self,
+        didReceive: HTTPURLResponse(
+          url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+        cacheStoragePolicy: .notAllowed)
+      client?.urlProtocol(self, didLoad: Data(body.utf8))
+      client?.urlProtocolDidFinishLoading(self)
+    } catch {
+      client?.urlProtocol(self, didFailWithError: error)
+    }
+  }
+  override func stopLoading() {}
 }
 
 private final class UnavailableProtocol: URLProtocol, @unchecked Sendable {

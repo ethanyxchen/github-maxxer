@@ -81,7 +81,7 @@ struct SettingsView: View {
         Text("GitHub connections")
       } footer: {
         Text(
-          "Add personal and work accounts, or multiple connections for the same account. Credentials are stored in macOS Keychain. Activity is saved locally so it stays available offline."
+          "Connect personal and work accounts. Signing in to the same account again updates its credential and keeps your repository selections. Credentials are stored in macOS Keychain. Activity is saved locally so it stays available offline."
         )
         .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
       }

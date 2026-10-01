@@ -66,15 +66,10 @@ enum PreviewData {
       contributions: ContributionCalendar(totalContributions: total, weeks: weeks), fetchedAt: now)
     return [
       AccountConnection(
-        id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, label: "Work",
-        profile: profile, scope: RepositoryScope(allRepositories: false, owners: ["northstar"]),
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, label: "Alex Morgan",
+        profile: profile, scope: RepositoryScope(),
         snapshot: snapshot
-      ),
-      AccountConnection(
-        id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, label: "Personal",
-        profile: profile, scope: RepositoryScope(allRepositories: false, owners: ["alexmorgan"]),
-        snapshot: snapshot
-      ),
+      )
     ]
   }
 }

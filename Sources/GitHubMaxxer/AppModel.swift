@@ -5,7 +5,7 @@ import Observation
 struct AccountConnection: Codable, Identifiable {
   let id: UUID
   var label: String
-  let profile: GitHubProfile
+  var profile: GitHubProfile
   var scope: RepositoryScope
   var snapshot: GitHubSnapshot
 }
@@ -125,14 +125,16 @@ final class AppModel {
     if let existing = connections.first(where: { $0.id == id }), existing.profile.id != profile.id {
       throw ConnectionError.wrongAccount(existing.profile.login)
     }
-    let connectionID = id ?? UUID()
+    let connectionID =
+      id ?? connections.first { $0.profile.id == profile.id }?.id ?? UUID()
     let snapshot = try await client.snapshot(login: profile.login)
     try Task.checkCancellation()
     try credentials.save(token, for: connectionID)
     let name = label.trimmingCharacters(in: .whitespacesAndNewlines)
     if let index = connections.firstIndex(where: { $0.id == connectionID }) {
+      connections[index].profile = profile
       connections[index].snapshot = snapshot
-      connections[index].label = name.isEmpty ? profile.login : name
+      if !name.isEmpty { connections[index].label = name }
     } else {
       connections.append(
         AccountConnection(

@@ -133,7 +133,7 @@ private func searchResponse(count: Int, nodes: [String], next: String? = nil) ->
   )
 }
 
-private func requestBody(_ request: URLRequest) throws -> [String: Any] {
+func requestBody(_ request: URLRequest) throws -> [String: Any] {
   let data: Data
   if let body = request.httpBody {
     data = body
