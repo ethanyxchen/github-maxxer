@@ -68,55 +68,67 @@ struct ContributionGraphView: View {
   }
 
   private func graph(_ calendar: ContributionCalendar) -> some View {
-    GeometryReader { geometry in
-      let columns = max(calendar.weeks.count, 1)
-      let size = min(
-        13, max(5, (geometry.size.width - 36 - Double(columns - 1) * 3) / Double(columns)))
-      HStack(alignment: .top, spacing: 7) {
-        VStack(alignment: .leading, spacing: 3) {
-          Color.clear.frame(height: 16)
-          ForEach(0..<7) { weekday in
-            Text(weekday == 1 ? "Mon" : weekday == 3 ? "Wed" : weekday == 5 ? "Fri" : "")
-              .font(.system(size: 9)).foregroundStyle(.secondary)
-              .frame(width: 27, height: size, alignment: .leading)
-          }
+    let monthLabels = calendar.weeks.enumerated().map {
+      monthLabel(for: $0.element, index: $0.offset, weeks: calendar.weeks)
+    }
+    return GeometryReader { geometry in
+      let grid = ContributionGridGeometry(
+        width: geometry.size.width, weekCount: calendar.weeks.count)
+      Canvas { context, _ in
+        for (weekday, label) in [(1, "Mon"), (3, "Wed"), (5, "Fri")] {
+          context.draw(
+            Text(label).font(.system(size: 9)).foregroundStyle(.secondary),
+            at: CGPoint(x: 0, y: grid.rect(week: 0, weekday: weekday).midY), anchor: .leading)
         }
-        HStack(alignment: .top, spacing: 3) {
-          ForEach(Array(calendar.weeks.enumerated()), id: \.offset) { index, week in
-            VStack(spacing: 3) {
-              Text(monthLabel(for: week, index: index, weeks: calendar.weeks))
-                .font(.system(size: 9)).foregroundStyle(.secondary)
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(width: size, height: 16, alignment: .leading)
-              ForEach(0..<7) { weekday in
-                if let day = week.contributionDays.first(where: { $0.weekday == weekday }) {
-                  RoundedRectangle(cornerRadius: 2)
-                    .fill(color(day.contributionLevel))
-                    .frame(width: size, height: size)
-                    .overlay {
-                      RoundedRectangle(cornerRadius: 2)
-                        .strokeBorder(.primary.opacity(0.04), lineWidth: 0.5)
-                    }
-                    .help(dayDescription(day))
-                    .onHover { inside in
-                      if inside {
-                        hoveredDay = day
-                      } else if hoveredDay?.id == day.id {
-                        hoveredDay = nil
-                      }
-                    }
-                    .accessibilityLabel(dayDescription(day))
-                } else {
-                  Color.clear.frame(width: size, height: size).accessibilityHidden(true)
-                }
-              }
-            }
-            .frame(width: size)
+        for (index, week) in calendar.weeks.enumerated() {
+          context.draw(
+            Text(monthLabels[index]).font(.system(size: 9)).foregroundStyle(.secondary),
+            at: CGPoint(x: grid.rect(week: index, weekday: 0).minX, y: 8), anchor: .leading)
+          for day in week.contributionDays {
+            let rect = grid.rect(week: index, weekday: day.weekday)
+            context.fill(
+              Path(roundedRect: rect, cornerRadius: 2), with: .color(color(day.contributionLevel)))
+            context.stroke(
+              Path(roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), cornerRadius: 1.75),
+              with: .color(.primary.opacity(0.04)), lineWidth: 0.5)
           }
         }
       }
+      .onContinuousHover { phase in
+        let day: ContributionDay?
+        switch phase {
+        case .active(let location):
+          if let cell = grid.cell(at: location) {
+            day = calendar.weeks[cell.week].contributionDays.first { $0.weekday == cell.weekday }
+          } else {
+            day = nil
+          }
+        case .ended:
+          day = nil
+        }
+        if hoveredDay?.id != day?.id { hoveredDay = day }
+      }
     }
     .frame(height: 132)
+    .help(hoveredDay.map(dayDescription) ?? "Hover over a day to see its contributions")
+    .accessibilityRepresentation {
+      HStack(spacing: 0) {
+        ForEach(calendar.weeks, id: \.firstDay) { week in
+          VStack(spacing: 0) {
+            ForEach(0..<7) { weekday in
+              if let day = week.contributionDays.first(where: { $0.weekday == weekday }) {
+                Rectangle()
+                  .accessibilityLabel(dayDescription(day))
+              } else {
+                Color.clear.accessibilityHidden(true)
+              }
+            }
+          }
+        }
+      }
+      .accessibilityElement(children: .contain)
+      .accessibilityLabel("Daily contributions")
+    }
   }
 
   private func monthLabel(for week: ContributionWeek, index: Int, weeks: [ContributionWeek])

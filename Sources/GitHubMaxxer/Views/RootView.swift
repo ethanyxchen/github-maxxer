@@ -100,6 +100,7 @@ struct RootView: View {
         statusBar
       }
     }
+    .navigationSplitViewStyle(.balanced)
     .sheet(item: $connectionDraft) { draft in
       ConnectionSheet(existing: draft.existing)
         .environment(model)
