@@ -13,7 +13,7 @@ struct OverviewView: View {
           HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 5) {
               Text("Merged pull requests").font(.title2.weight(.semibold))
-              Text("Your authored PRs, counted when they merge.")
+              Text("\(model.goals.daily) PRs keeps the layoff away")
                 .font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
