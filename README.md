@@ -29,7 +29,9 @@ Credentials are saved in macOS Keychain after the app validates the account and 
 
 ### One-time setup for the app owner
 
-Browser sign in uses [GitHub's OAuth device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow). Register one OAuth app for GitHub Maxxer; end users do not need to register their own app.
+Browser sign in uses [GitHub's OAuth device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow). The standard build includes GitHub Maxxer's registered public Client ID, so you can sign in immediately. End users do not need to register an app.
+
+To use your own OAuth app for a fork:
 
 1. Open [Register a new OAuth application](https://github.com/settings/applications/new).
 2. Set the name to **GitHub Maxxer** and homepage to `https://github.com/ethanyxchen/github-maxxer`.
@@ -42,7 +44,7 @@ GITHUB_OAUTH_CLIENT_ID=your_client_id ./scripts/build-app.sh
 open 'build/GitHub Maxxer.app'
 ```
 
-The build embeds the public Client ID in the app bundle. No client secret is needed or shipped. For `swift run` or Xcode development, set the same environment variable. An unconfigured build explains the missing registration when browser sign in is attempted; CLI import remains available.
+The build embeds the public Client ID in the app bundle; the environment variable overrides the registered app for custom builds. No client secret is needed or shipped. For `swift run` or Xcode development, set the same environment variable because those executables do not use the packaged app's Info.plist.
 
 ## How activity is counted
 
