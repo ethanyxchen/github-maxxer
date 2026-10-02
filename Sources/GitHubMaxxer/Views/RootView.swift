@@ -80,6 +80,7 @@ struct RootView: View {
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
       .navigationTitle((selection ?? .overview).title)
+      .navigationSubtitle(subtitle)
       .toolbarBackground(.hidden, for: .windowToolbar)
       .toolbar {
         if selection == .overview || selection == .pullRequests {
@@ -111,9 +112,6 @@ struct RootView: View {
           .help("Refresh GitHub activity (⌘R)")
         }
       }
-      .safeAreaInset(edge: .bottom, spacing: 0) {
-        statusBar
-      }
     }
     .navigationSplitViewStyle(.balanced)
     .sheet(item: $connectionDraft) { draft in
@@ -133,7 +131,23 @@ struct RootView: View {
   }
 
   private func navigationRow(_ destination: Destination) -> some View {
-    Label(destination.title, systemImage: destination.symbol).tag(destination)
+    let today = model.progress(for: .day)
+    return Label {
+      Text(destination.title)
+    } icon: {
+      Image(systemName: destination.symbol).foregroundStyle(Palette.secondary)
+    }
+    .tag(destination)
+    .badge(
+      destination == .overview && !model.connections.isEmpty
+        ? Text("\(today.count)/\(today.target)") : nil)
+  }
+
+  private var subtitle: String {
+    guard !model.connections.isEmpty else { return "" }
+    guard let date = model.lastUpdated else { return "Waiting for first update" }
+    return
+      "Updated \(date.formatted(.relative(presentation: .named))) · \(model.trackedRepositoryCount) repositories"
   }
 
   @ViewBuilder
@@ -151,28 +165,6 @@ struct RootView: View {
       SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }
     }
   }
-
-  private var statusBar: some View {
-    HStack(spacing: 6) {
-      if model.connections.isEmpty {
-        Text("No GitHub account connected")
-      } else {
-        Image(systemName: model.errors.isEmpty ? "checkmark.circle" : "exclamationmark.circle")
-          .foregroundStyle(model.errors.isEmpty ? Color.secondary : .orange)
-        if let date = model.lastUpdated {
-          Text("Updated \(date, style: .relative) ago")
-        } else {
-          Text("Waiting for first update")
-        }
-        Spacer()
-        Text("\(model.trackedRepositoryCount) repositories · Refreshes every minute")
-      }
-    }
-    .font(.caption).foregroundStyle(.secondary)
-    .padding(.horizontal, 20).padding(.vertical, 9)
-    .background(.bar)
-    .accessibilityElement(children: .combine)
-  }
 }
 
 private struct WelcomeView: View {
@@ -182,7 +174,7 @@ private struct WelcomeView: View {
     VStack(spacing: 22) {
       Image(systemName: "arrow.triangle.pull")
         .font(.system(size: 46, weight: .light))
-        .foregroundStyle(.green)
+        .foregroundStyle(Palette.reached)
       VStack(spacing: 9) {
         Text("Keep track of what you merge")
           .font(.system(size: 26, weight: .semibold))

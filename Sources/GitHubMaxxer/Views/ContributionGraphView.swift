@@ -15,7 +15,6 @@ struct ContributionGraphView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       HStack(alignment: .firstTextBaseline) {
-        Text("Contribution activity").font(.title3.weight(.semibold))
         Spacer()
         if model.contributionAccounts.count > 1 {
           Picker(
@@ -53,18 +52,11 @@ struct ContributionGraphView: View {
           }
           .font(.caption2).foregroundStyle(.secondary)
         }
-        Text(
-          "GitHub's account-wide calendar includes commits, issues, reviews, and opened PRs. Repository tracking applies to your PR targets."
-        )
-        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
       } else {
         Text("Your contribution calendar will appear after the first successful update.")
           .font(.callout).foregroundStyle(.secondary).padding(.vertical, 32)
       }
     }
-    .padding(20)
-    .background(.background, in: RoundedRectangle(cornerRadius: 10))
-    .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(.separator.opacity(0.6)) }
   }
 
   private func graph(_ calendar: ContributionCalendar) -> some View {

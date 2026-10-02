@@ -3,216 +3,197 @@ import SwiftUI
 
 struct OverviewView: View {
   @Environment(AppModel.self) private var model
-  @Environment(\.openSettings) private var openSettings
   @Binding var filter: ActivityFilter
   let showAllPulls: () -> Void
 
-  private var pulls: [MergedPullRequest] { model.pullRequests(for: filter) }
-  private var breakdownFilters: [ActivityFilter] {
+  private var owners: [ActivityFilter] {
     [.all, .personal] + model.organizations.map(ActivityFilter.organization)
   }
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 28) {
-        VStack(alignment: .leading, spacing: 16) {
-          HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 5) {
-              Text("Merged pull requests").font(.title2.weight(.semibold))
-              Text("\(model.goals.daily) PRs keeps the layoff away")
-                .font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-            Button("Edit targets") { openSettings() }.buttonStyle(.link)
+      VStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
+          today.padding(24).frame(maxWidth: .infinity, alignment: .leading)
+          Rule(vertical: true)
+          VStack(alignment: .leading, spacing: 28) {
+            period(.week)
+            period(.month)
           }
-          HStack(spacing: 14) {
-            ForEach(GoalPeriod.allCases) { period in
-              GoalCard(
-                period: period, progress: model.progress(for: period, filter: filter),
-                now: model.now, filter: filter)
-            }
-          }
+          .padding(24).frame(maxWidth: .infinity, alignment: .leading)
         }
-        activityBreakdown
-        if filter == .all {
-          ContributionGraphView()
-        } else {
-          Text("GitHub's account-wide contribution calendar appears in All activity.")
-            .font(.caption).foregroundStyle(.secondary)
+        Rule()
+        HStack(alignment: .top, spacing: 0) {
+          RecordView(filter: filter).padding(24).frame(maxWidth: .infinity, alignment: .leading)
+          Rule(vertical: true)
+          recentMerges.padding(.vertical, 20).frame(width: 400)
         }
-        VStack(alignment: .leading, spacing: 12) {
-          HStack {
-            Text("Recent merges").font(.title3.weight(.semibold))
-            Spacer()
-            Button("Show all", action: showAllPulls).buttonStyle(.link)
-          }
-          if pulls.isEmpty {
-            VStack(spacing: 8) {
-              Image(systemName: "arrow.triangle.merge").font(.title2).foregroundStyle(.secondary)
-              Text("No merges for \(filter.title.lowercased())").font(.headline)
-              Text("Merged PRs from the last 90 days will appear here.")
-                .font(.callout).foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity).padding(.vertical, 28)
-          } else {
-            VStack(spacing: 0) {
-              ForEach(Array(pulls.prefix(5).enumerated()), id: \.element.id) {
-                index, pull in
-                if index > 0 { Divider().padding(.leading, 36) }
-                PullRequestRow(pull: pull).padding(.vertical, 12)
-              }
-            }
-          }
+        if !model.organizations.isEmpty {
+          Rule()
+          ownerTable.padding(24)
         }
-        Text("Targets follow your Mac's time zone. Weeks start on Monday.")
-          .font(.caption).foregroundStyle(.tertiary)
       }
-      .padding(28)
+      .background(Palette.panel)
+      .clipShape(RoundedRectangle(cornerRadius: 8))
+      .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.rule) }
+      .padding(24)
       .frame(maxWidth: 1100)
       .frame(maxWidth: .infinity)
     }
-    .background(Color(nsColor: .windowBackgroundColor))
+    .background(Palette.background)
+    .foregroundStyle(Palette.ink)
   }
 
-  private var activityBreakdown: some View {
-    VStack(alignment: .leading, spacing: 14) {
-      VStack(alignment: .leading, spacing: 4) {
-        Text("Activity by organisation").font(.title3.weight(.semibold))
-        Text("Merged PRs in tracked repositories, with personal work shown separately.")
-          .font(.callout).foregroundStyle(.secondary)
-      }
-      VStack(spacing: 0) {
-        HStack(spacing: 10) {
-          Text("Owner").frame(maxWidth: .infinity, alignment: .leading)
-          Text("Today").frame(width: 58, alignment: .trailing)
-          Text("Week").frame(width: 58, alignment: .trailing)
-          Text("Month").frame(width: 58, alignment: .trailing)
-          Text("90 days").frame(width: 66, alignment: .trailing)
-          Color.clear.frame(width: 12)
+  private var today: some View {
+    let progress = model.progress(for: .day, filter: filter)
+    return PeriodLink(period: .day, filter: filter) {
+      VStack(alignment: .leading, spacing: 16) {
+        Eyebrow("Today · merged PRs")
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+          Text(padded(progress.count)).font(.readout(64))
+          Text("/ \(padded(progress.target))").font(.readout(22)).foregroundStyle(Palette.secondary)
         }
-        .font(.caption.weight(.medium)).foregroundStyle(.secondary)
-        .padding(.horizontal, 14).padding(.bottom, 4)
-        ForEach(breakdownFilters, id: \.self) { scope in
-          let today = model.progress(for: .day, filter: scope).count
-          let week = model.progress(for: .week, filter: scope).count
-          let month = model.progress(for: .month, filter: scope).count
-          let history = model.pullRequests(for: scope).count
-          Button {
-            filter = scope
-          } label: {
-            HStack(spacing: 10) {
-              Text(scope.title).lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-              Text(today, format: .number)
-                .frame(width: 58, alignment: .trailing)
-              Text(week, format: .number)
-                .frame(width: 58, alignment: .trailing)
-              Text(month, format: .number)
-                .frame(width: 58, alignment: .trailing)
-              Text(history, format: .number)
-                .frame(width: 66, alignment: .trailing)
-              Image(systemName: filter == scope ? "checkmark" : "chevron.right")
-                .font(.system(size: 10, weight: .semibold))
-                .frame(width: 12)
-            }
-            .font(.callout)
-            .monospacedDigit()
-            .padding(.horizontal, 14)
-            .frame(minHeight: 44)
-            .background(
-              filter == scope ? Color.accentColor.opacity(0.1) : Color.clear,
-              in: RoundedRectangle(cornerRadius: 8)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 8))
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel(
-            "\(scope.title): \(today) today, \(week) this week, \(month) this month, \(history) in 90 days"
-          )
-          .accessibilityHint("Show \(scope.title.lowercased()) activity")
+        SegmentMeter(
+          count: progress.count, target: progress.target,
+          scale: max(progress.target * 2, progress.count))
+        HStack(spacing: 8) {
+          Lamp(isOn: progress.isComplete)
+          Text(status(progress)).font(.system(size: 12, design: .monospaced))
+            .foregroundStyle(Palette.secondary)
         }
       }
     }
-    .padding(20)
-    .background(.background, in: RoundedRectangle(cornerRadius: 10))
-    .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(.separator.opacity(0.6)) }
+    .accessibilityLabel("Today: \(progress.count) merged PRs, target \(progress.target)")
+  }
+
+  private func period(_ period: GoalPeriod) -> some View {
+    let progress = model.progress(for: period, filter: filter)
+    let scale = period == .week ? progress.target + progress.target / 3 : progress.target
+    return PeriodLink(period: period, filter: filter) {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .firstTextBaseline) {
+          Text(period.title).fontWeight(.semibold)
+          Text(periodDateLabel(period, now: model.now)).font(.caption)
+            .foregroundStyle(Palette.secondary)
+          Spacer()
+          Text("\(padded(progress.count)) / \(padded(progress.target))").font(.readout(14))
+        }
+        SegmentMeter(
+          count: progress.count, target: progress.target, scale: max(scale, progress.count),
+          pace: progress.isComplete ? nil : period.pace(target: progress.target, now: model.now),
+          height: 14)
+        Text(note(period, progress)).font(.system(size: 11, design: .monospaced))
+          .foregroundStyle(Palette.secondary).padding(.top, 4)
+      }
+    }
+    .accessibilityLabel(
+      "\(period.title): \(progress.count) merged PRs, target \(progress.target). \(note(period, progress))"
+    )
+  }
+
+  private var recentMerges: some View {
+    let pulls = model.pullRequests(for: filter).prefix(6)
+    return VStack(alignment: .leading, spacing: 0) {
+      HStack {
+        Eyebrow("Recent merges")
+        Spacer()
+        Button("Show all", action: showAllPulls).buttonStyle(.link).font(.caption)
+      }
+      .padding(.horizontal, 20).padding(.bottom, 8)
+      if pulls.isEmpty {
+        Text("No merges in the last 90 days").font(.callout).foregroundStyle(Palette.secondary)
+          .padding(20)
+      }
+      ForEach(pulls) { pull in
+        Rule()
+        PullRequestRow(pull: pull).padding(.horizontal, 20).padding(.vertical, 10)
+      }
+    }
+  }
+
+  private var ownerTable: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack {
+        Eyebrow("By owner").frame(maxWidth: .infinity, alignment: .leading)
+        ForEach(GoalPeriod.allCases) { period in
+          Eyebrow(period.title).frame(width: 90, alignment: .trailing)
+        }
+      }
+      .padding(.horizontal, 10).padding(.bottom, 4)
+      ForEach(owners, id: \.self) { owner in
+        let counts = GoalPeriod.allCases.map { model.progress(for: $0, filter: owner).count }
+        Button {
+          filter = owner
+        } label: {
+          HStack {
+            Text(owner.title).fontWeight(filter == owner ? .semibold : .regular)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            ForEach(counts.indices, id: \.self) { index in
+              Text(padded(counts[index])).font(.readout(12)).frame(width: 90, alignment: .trailing)
+            }
+          }
+          .padding(.horizontal, 10).frame(height: 32)
+          .background(
+            filter == owner ? Palette.empty : .clear, in: RoundedRectangle(cornerRadius: 4)
+          )
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+          "\(owner.title): \(counts[0]) today, \(counts[1]) this week, \(counts[2]) this month"
+        )
+        .accessibilityAddTraits(filter == owner ? .isSelected : [])
+      }
+    }
+  }
+
+  private func status(_ progress: GoalProgress) -> String {
+    guard progress.isComplete else { return "\(progress.remaining) to go" }
+    let over = progress.count - progress.target
+    return over > 0 ? "Target reached · \(over) over" : "Target reached"
+  }
+
+  private func note(_ period: GoalPeriod, _ progress: GoalProgress) -> String {
+    if progress.isComplete { return "Target reached" }
+    let delta = progress.count - period.pace(target: progress.target, now: model.now)
+    if delta > 0 { return "\(delta) ahead of pace" }
+    if delta < 0 { return "\(-delta) behind pace" }
+    return "On pace"
   }
 }
 
-private struct GoalCard: View {
+private func padded(_ value: Int) -> String {
+  value < 10 ? "0\(value)" : String(value)
+}
+
+private struct PeriodLink<Label: View>: View {
   let period: GoalPeriod
-  let progress: GoalProgress
-  let now: Date
   let filter: ActivityFilter
+  @ViewBuilder let label: Label
   @State private var showingPulls = false
-  @State private var isHovering = false
 
   var body: some View {
     Button {
       showingPulls = true
     } label: {
-      content
+      label.contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .help("Show merged PRs for \(period.title.lowercased())")
     .accessibilityElement(children: .ignore)
     .accessibilityAddTraits(.isButton)
-    .accessibilityLabel("\(period.title): \(progress.count) merged PRs, target \(progress.target)")
     .accessibilityHint("Show merged pull requests")
-    .onHover { isHovering = $0 }
     .popover(isPresented: $showingPulls, arrowEdge: .bottom) {
       PeriodPullRequestsView(period: period, filter: filter)
     }
   }
-
-  private var content: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      HStack {
-        Text(period.title).font(.headline)
-        Spacer(minLength: 0)
-        if progress.isComplete {
-          Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-            .help("Target reached")
-        }
-      }
-      HStack(alignment: .firstTextBaseline, spacing: 6) {
-        Text(progress.count, format: .number)
-          .font(.system(size: 36, weight: .medium, design: .rounded))
-          .foregroundStyle(progress.isComplete ? Color.green : .primary)
-        Text("/ \(progress.target)")
-          .font(.title3).foregroundStyle(.secondary)
-      }
-      .monospacedDigit()
-      ProgressView(value: progress.fraction)
-        .tint(.green)
-      VStack(alignment: .leading, spacing: 4) {
-        Text(progress.isComplete ? "Target reached" : "\(progress.remaining) to go")
-          .font(.callout.weight(.medium))
-        HStack {
-          Text(periodDateLabel(period, now: now))
-          Spacer(minLength: 4)
-          Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
-        }
-        .font(.caption).foregroundStyle(.secondary)
-      }
-    }
-    .padding(18)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .background(.background, in: RoundedRectangle(cornerRadius: 10))
-    .overlay {
-      RoundedRectangle(cornerRadius: 10).strokeBorder(
-        isHovering ? Color.accentColor.opacity(0.5) : Color(nsColor: .separatorColor).opacity(0.6))
-    }
-    .contentShape(RoundedRectangle(cornerRadius: 10))
-  }
-
 }
 
 private struct PeriodPullRequestsView: View {
   @Environment(AppModel.self) private var model
   let period: GoalPeriod
   let filter: ActivityFilter
-  private let rowHeight: CGFloat = 64
+  private let rowHeight: CGFloat = 54
 
   var body: some View {
     let pulls = model.pullRequests(for: period, filter: filter)
@@ -289,33 +270,18 @@ struct PullRequestRow: View {
   }
 
   private var content: some View {
-    HStack(alignment: .top, spacing: 12) {
-      Image(systemName: "arrow.triangle.merge")
-        .font(.system(size: 15, weight: .medium))
-        .foregroundStyle(.purple).frame(width: 24).padding(.top, 2)
-      VStack(alignment: .leading, spacing: 5) {
-        Text(pull.title).font(.body.weight(.medium)).foregroundStyle(.primary)
-          .lineLimit(2).multilineTextAlignment(.leading)
-        HStack(spacing: 6) {
-          Text(pull.repository.nameWithOwner).lineLimit(1).truncationMode(.middle)
-            .help(pull.repository.nameWithOwner)
-          Text("#\(String(pull.number))").fixedSize()
-          if pull.repository.isPrivate {
-            Label("Private", systemImage: "lock").fixedSize()
-          } else {
-            Text("Public").fixedSize()
-          }
-        }
-        .font(.caption).foregroundStyle(.secondary)
+    HStack(alignment: .firstTextBaseline, spacing: 12) {
+      VStack(alignment: .leading, spacing: 3) {
+        Text(pull.title).fontWeight(.medium).foregroundStyle(Palette.ink).lineLimit(1)
+          .help(pull.title)
+        Text("#\(String(pull.number)) · \(pull.repository.nameWithOwner)")
+          .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
+          .lineLimit(1)
       }
       Spacer(minLength: 12)
-      VStack(alignment: .trailing, spacing: 3) {
-        Text(pull.mergedAt, format: .dateTime.month(.abbreviated).day())
-        Text(pull.mergedAt, format: .dateTime.hour().minute())
-      }
-      .font(.caption).foregroundStyle(.secondary).monospacedDigit()
-      .help(pull.mergedAt.formatted(date: .complete, time: .shortened))
-      .padding(.top, 3)
+      Text(pull.mergedAt, format: .dateTime.month(.abbreviated).day().hour().minute())
+        .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
+        .help(pull.mergedAt.formatted(date: .complete, time: .shortened))
     }
   }
 }

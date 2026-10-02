@@ -32,8 +32,12 @@ struct GitHubMaxxerApp: App {
         .preferredColorScheme(previewColorScheme)
         .frame(width: 580, height: 580)
     }
-    MenuBarExtra("Hammertime", systemImage: "arrow.triangle.pull") {
+    MenuBarExtra {
       MenuBarView().environment(model)
+    } label: {
+      let today = model.progress(for: .day)
+      Image(systemName: today.isComplete ? "checkmark.circle.fill" : "arrow.triangle.pull")
+      Text("\(today.count)/\(today.target)")
     }
   }
 }

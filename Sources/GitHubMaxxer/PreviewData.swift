@@ -23,12 +23,12 @@ enum PreviewData {
       "Fix window restoration on launch", "Remove unused build steps",
       "Add tests for calendar boundaries", "Update Swift toolchain",
     ]
-    let pulls = (0..<32).map { index in
+    let pulls = (0..<200).map { index in
       MergedPullRequest(
-        id: "preview-pr-\(index)", title: titles[index % titles.count], number: 248 - index,
+        id: "preview-pr-\(index)", title: titles[index % titles.count], number: 400 - index,
         url: URL(
-          string: "https://github.com/\(repositories[index % 4].nameWithOwner)/pull/\(248 - index)")!,
-        mergedAt: now.addingTimeInterval(-Double(index * index + index) * 4_000),
+          string: "https://github.com/\(repositories[index % 4].nameWithOwner)/pull/\(400 - index)")!,
+        mergedAt: now.addingTimeInterval(-(Double(index) * 10.4 + Double(index * 7 % 5)) * 3_600),
         repository: repositories[index % 4]
       )
     }

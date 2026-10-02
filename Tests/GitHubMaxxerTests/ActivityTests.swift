@@ -131,6 +131,40 @@ struct ActivityTests {
     #expect(!interval.contains(now.addingTimeInterval(1)))
   }
 
+  @Test func paceCountsElapsedWorkdays() {
+    let friday = date("2026-10-02T12:00:00Z")
+    let wednesday = date("2026-09-30T12:00:00Z")
+    #expect(GoalPeriod.month.pace(target: 60, now: friday, calendar: calendar) == 5)
+    #expect(GoalPeriod.week.pace(target: 15, now: friday, calendar: calendar) == 15)
+    #expect(GoalPeriod.week.pace(target: 15, now: wednesday, calendar: calendar) == 9)
+    #expect(GoalPeriod.day.pace(target: 3, now: friday, calendar: calendar) == 3)
+  }
+
+  @Test func dailyCountsCoverHistoryByLocalDay() {
+    let now = date("2026-10-02T12:00:00Z")
+    let pulls = [
+      pull("today", "2026-10-02T09:00:00Z"),
+      pull("local-today", "2026-10-01T23:30:00Z"),
+      pull("yesterday", "2026-10-01T22:59:59Z"),
+    ]
+    let days = Activity.dailyCounts(pulls, endingAt: now, calendar: calendar)
+    #expect(days.count == 90)
+    #expect(days.last?.count == 2)
+    #expect(days.dropLast().last?.count == 1)
+    #expect(days.first?.day == Activity.historyInterval(endingAt: now, calendar: calendar).start)
+  }
+
+  @Test func weeksStartOnMondayAndPadPartialWeeks() {
+    let now = date("2026-10-02T12:00:00Z")
+    let days = Activity.dailyCounts([], endingAt: now, calendar: calendar)
+    let weeks = Activity.weeks(days, calendar: calendar)
+    #expect(weeks.allSatisfy { $0.count == 7 })
+    #expect(weeks.flatMap { $0 }.compactMap { $0 }.count == 90)
+    let firstMonday = weeks[1][0].map { calendar.component(.weekday, from: $0.day) }
+    #expect(firstMonday == 2)
+    #expect(weeks.last?[4]?.day == calendar.startOfDay(for: now))
+  }
+
   @Test func progressCapsAtOneAndRetainsExcessCount() {
     #expect(GoalProgress(count: 7, target: 5).fraction == 1)
     #expect(GoalProgress(count: 7, target: 5).remaining == 0)

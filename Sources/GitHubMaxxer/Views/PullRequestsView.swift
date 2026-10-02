@@ -22,15 +22,14 @@ struct PullRequestsView: View {
     VStack(spacing: 0) {
       HStack {
         Picker("Period", selection: $period) {
-          Text("Last 90 days").tag(nil as GoalPeriod?)
+          Text("90 days").tag(nil as GoalPeriod?)
           ForEach(GoalPeriod.allCases) { period in
             Text(period.title).tag(Optional(period))
           }
         }
         .pickerStyle(.segmented).frame(maxWidth: 440)
         Spacer()
-        Text("\(pulls.count.formatted()) merged")
-          .font(.callout).foregroundStyle(.secondary).monospacedDigit()
+        Eyebrow("\(pulls.count.formatted()) merged")
       }
       .padding(20)
       if pulls.isEmpty {
@@ -48,30 +47,27 @@ struct PullRequestsView: View {
       } else {
         Table(pulls) {
           TableColumn("Pull request") { pull in
-            HStack(spacing: 8) {
-              Image(systemName: "arrow.triangle.merge").foregroundStyle(.purple)
-              Link(pull.title, destination: pull.url)
-                .foregroundStyle(.primary).lineLimit(1)
-                .help(pull.title)
-            }
-            .padding(.vertical, 6)
+            Link(pull.title, destination: pull.url)
+              .foregroundStyle(Palette.ink).lineLimit(1)
+              .help(pull.title)
+              .padding(.vertical, 6)
           }
           .width(min: 240, ideal: 420)
           TableColumn("Repository") { pull in
-            HStack(spacing: 5) {
-              Text(pull.repository.nameWithOwner).lineLimit(1)
-              if pull.repository.isPrivate { Image(systemName: "lock").font(.caption2) }
-            }
-            .foregroundStyle(.secondary)
+            Text(pull.repository.nameWithOwner + (pull.repository.isPrivate ? " · private" : ""))
+              .font(.system(size: 11, design: .monospaced)).lineLimit(1)
+              .foregroundStyle(Palette.secondary)
           }
           .width(min: 130, ideal: 190)
           TableColumn("PR") { pull in
-            Text("#\(pull.number)").foregroundStyle(.secondary).monospacedDigit()
+            Text("#\(String(pull.number))").font(.system(size: 11, design: .monospaced))
+              .foregroundStyle(Palette.secondary)
           }
           .width(65)
           TableColumn("Merged") { pull in
             Text(pull.mergedAt, format: .dateTime.month(.abbreviated).day())
-              .foregroundStyle(.secondary)
+              .font(.system(size: 11, design: .monospaced))
+              .foregroundStyle(Palette.secondary)
               .help(pull.mergedAt.formatted(date: .complete, time: .shortened))
           }
           .width(85)

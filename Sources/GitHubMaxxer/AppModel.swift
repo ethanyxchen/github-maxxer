@@ -46,6 +46,7 @@ final class AppModel {
       .appending(path: "state.json")
     if preview {
       connections = PreviewData.connections(now: now)
+      goals = Goals(daily: 2)
     } else if FileManager.default.fileExists(atPath: self.stateURL.path) {
       do {
         let state = try JSONDecoder().decode(SavedState.self, from: Data(contentsOf: self.stateURL))
@@ -110,6 +111,10 @@ final class AppModel {
     -> [MergedPullRequest]
   {
     period.pullRequests(in: pullRequests(for: filter), now: now)
+  }
+
+  func dailyCounts(for filter: ActivityFilter) -> [DailyCount] {
+    Activity.dailyCounts(pullRequests(for: filter), endingAt: now)
   }
 
   func setDailyGoal(_ value: Int) {
