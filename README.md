@@ -76,6 +76,8 @@ Credentials live only in macOS Keychain. Targets, repository selections, and fet
 
 ## Development checks
 
+Unit tests use in-memory credentials and mocked GitHub responses, so they do not access your Keychain or require account authorization.
+
 ```sh
 swift test
 swift format lint --strict --recursive Package.swift Sources Tests scripts/make-icon.swift
