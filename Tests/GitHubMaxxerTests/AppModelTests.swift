@@ -1,6 +1,5 @@
 import Foundation
 import GitHubMaxxerCore
-import Security
 import Testing
 
 @testable import GitHubMaxxer
@@ -18,17 +17,12 @@ struct AppModelTests {
       scope: RepositoryScope(allRepositories: false, owners: ["northstar"]),
       snapshot: sample.snapshot)
     try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
-    let store = CredentialStore(service: "com.ethanyxchen.github-maxxer.tests")
+    let store = TestCredentials()
     try store.save("oauth-credential", for: connection.id)
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [SignedInProtocol.self]
     let model = AppModel(
       stateURL: url, credentials: store, session: URLSession(configuration: configuration))
-    defer {
-      for id in Set(model.connections.map(\.id) + [connection.id]) {
-        try? store.delete(for: id)
-      }
-    }
 
     try await model.connect(token: "cli-credential", label: "")
 
@@ -38,7 +32,7 @@ struct AppModelTests {
     #expect(model.connections[0].scope == connection.scope)
     #expect(model.connections[0].label == connection.label)
     #expect(try store.read(for: connection.id) == "cli-credential")
-    let reloaded = AppModel(stateURL: url)
+    let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.connections.count == 1)
     #expect(reloaded.connections[0].id == connection.id)
   }
@@ -47,12 +41,12 @@ struct AppModelTests {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
-    let model = AppModel(stateURL: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
     model.setDailyGoal(3)
     #expect(model.progress(for: .day).target == 3)
     #expect(model.progress(for: .week).target == 15)
     #expect(model.progress(for: .month).target == 60)
-    let reloaded = AppModel(stateURL: url)
+    let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.goals.daily == 3)
     #expect(reloaded.goals.weekly == 15)
     #expect(reloaded.goals.monthly == 60)
@@ -65,9 +59,9 @@ struct AppModelTests {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
-    let model = AppModel(stateURL: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
     model.setDailyGoal(-4)
-    let reloaded = AppModel(stateURL: url)
+    let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.goals.weekly == 5)
     #expect(reloaded.goals.monthly == 20)
     #expect(reloaded.goals.daily == 1)
@@ -78,90 +72,48 @@ struct AppModelTests {
   @Test func previewNeverWritesAccountState() {
     let url = URL.temporaryDirectory.appending(path: UUID().uuidString).appending(
       path: "state.json")
-    let model = AppModel(preview: true, stateURL: url)
+    let model = AppModel(preview: true, stateURL: url, credentials: TestCredentials())
     model.setDailyGoal(3)
     model.setScope(RepositoryScope(allRepositories: false), for: model.connections[0].id)
     #expect(!FileManager.default.fileExists(atPath: url.path))
   }
 
-  @Test func keychainSupportsReplacementAndRemoval() throws {
-    var interactionAllowed = DarwinBoolean(false)
-    #expect(SecKeychainGetUserInteractionAllowed(&interactionAllowed) == errSecSuccess)
-    #expect(SecKeychainSetUserInteractionAllowed(false) == errSecSuccess)
-    defer { SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue) }
-    let service = "com.ethanyxchen.github-maxxer.tests"
-    let store = CredentialStore(service: service)
-    let id = UUID()
-    defer { try? store.delete(for: id) }
-    try store.save("test-credential", for: id)
-    #expect(try store.read(for: id) == "test-credential")
-    var query: [CFString: Any] = [
-      kSecClass: kSecClassGenericPassword, kSecAttrService: service,
-      kSecAttrAccount: id.uuidString,
-    ]
-    var previousAccess: SecAccess?
-    #expect(SecAccessCreate("Previous name" as CFString, nil, &previousAccess) == errSecSuccess)
-    #expect(
-      SecItemUpdate(
-        query as CFDictionary,
-        [kSecAttrLabel: "Previous name", kSecAttrAccess: previousAccess!] as CFDictionary)
-        == errSecSuccess)
-    try store.save("replacement", for: id)
-    #expect(try store.read(for: id) == "replacement")
-    query[kSecReturnAttributes] = true
-    var attributes: CFTypeRef?
-    #expect(SecItemCopyMatching(query as CFDictionary, &attributes) == errSecSuccess)
-    #expect((attributes as? [CFString: Any])?[kSecAttrLabel] as? String == "Hammertime")
-    query[kSecReturnRef] = true
-    var item: CFTypeRef?
-    #expect(SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess)
-    let reference = (item as! [CFString: Any])[kSecValueRef] as! SecKeychainItem
-    var access: SecAccess?
-    #expect(SecKeychainItemCopyAccess(reference, &access) == errSecSuccess)
-    let entries = SecAccessCopyMatchingACLList(access!, kSecACLAuthorizationDecrypt) as! [SecACL]
-    for entry in entries {
-      var applications: CFArray?
-      var description: CFString?
-      var prompt = SecKeychainPromptSelector()
-      #expect(SecACLCopyContents(entry, &applications, &description, &prompt) == errSecSuccess)
-      #expect(description as String? == "Hammertime")
-      #expect((applications as? [SecTrustedApplication])?.isEmpty == false)
-    }
-    try store.delete(for: id)
-    #expect(throws: CredentialError.self) { try store.read(for: id) }
+  @Test func disconnectRemovesCredentialAndSavedActivity() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let connection = PreviewData.connections(now: .now)[0]
+    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    let store = TestCredentials()
+    try store.save("test-credential", for: connection.id)
+    let model = AppModel(stateURL: url, credentials: store)
+
+    try model.remove(connection.id)
+
+    #expect(model.connections.isEmpty)
+    #expect(store.tokens[connection.id] == nil)
+    #expect(AppModel(stateURL: url, credentials: store).connections.isEmpty)
   }
 
-  @Test func backgroundCredentialReadDoesNotRequestAuthorization() throws {
-    var interactionAllowed = DarwinBoolean(false)
-    #expect(SecKeychainGetUserInteractionAllowed(&interactionAllowed) == errSecSuccess)
-    #expect(SecKeychainSetUserInteractionAllowed(false) == errSecSuccess)
-    defer { SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue) }
-    let service = "com.ethanyxchen.github-maxxer.tests"
-    let id = UUID()
-    let store = CredentialStore(service: service)
-    var access: SecAccess?
-    #expect(
-      SecAccessCreate("Test authorization" as CFString, [] as CFArray, &access) == errSecSuccess)
-    let item: [CFString: Any] = [
-      kSecClass: kSecClassGenericPassword, kSecAttrService: service,
-      kSecAttrAccount: id.uuidString, kSecAttrAccess: access!,
-      kSecValueData: Data("test-credential".utf8),
-    ]
-    #expect(SecItemAdd(item as CFDictionary, nil) == errSecSuccess)
-    defer {
-      SecKeychainSetUserInteractionAllowed(false)
-      try? store.delete(for: id)
-    }
-    #expect(SecKeychainSetUserInteractionAllowed(true) == errSecSuccess)
-    do {
-      _ = try store.read(for: id)
-      Issue.record("Reading a protected credential must require explicit authorization")
-    } catch CredentialError.keychain(let status) {
-      #expect([errSecInteractionNotAllowed, errSecAuthFailed].contains(status))
-    }
-    var restoredInteraction = DarwinBoolean(false)
-    #expect(SecKeychainGetUserInteractionAllowed(&restoredInteraction) == errSecSuccess)
-    #expect(restoredInteraction.boolValue)
+  @Test func onlyExplicitRefreshAllowsCredentialInteraction() async throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let connection = PreviewData.connections(now: .now)[0]
+    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    let store = TestCredentials()
+    try store.save("test-credential", for: connection.id)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [UnavailableProtocol.self]
+    let model = AppModel(
+      stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+
+    await model.refresh()
+    await model.refresh(authorizeKeychain: true)
+
+    #expect(store.readInteractions == [false, true])
   }
 
   @Test func failedRefreshPreservesSnapshotAndReportsError() async throws {
@@ -172,10 +124,9 @@ struct AppModelTests {
     let connections = PreviewData.connections(now: .now)
     let state = FixtureState(goals: Goals(), connections: connections)
     try JSONEncoder().encode(state).write(to: url)
-    let store = CredentialStore(service: "com.ethanyxchen.github-maxxer.tests")
+    let store = TestCredentials()
     let id = connections[0].id
     try store.save("test-credential", for: id)
-    defer { try? store.delete(for: id) }
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [UnavailableProtocol.self]
     let model = AppModel(
@@ -187,8 +138,28 @@ struct AppModelTests {
     #expect(model.lastUpdated == updated)
     #expect(model.connectionErrors[id]?.contains("503") == true)
     #expect(!model.isRefreshing)
-    let reloaded = AppModel(stateURL: url)
+    let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.pullRequests == before)
+  }
+}
+
+@MainActor
+private final class TestCredentials: CredentialStorage {
+  var tokens: [UUID: String] = [:]
+  var readInteractions: [Bool] = []
+
+  func save(_ token: String, for id: UUID) throws {
+    tokens[id] = token
+  }
+
+  func read(for id: UUID, allowInteraction: Bool = false) throws -> String {
+    readInteractions.append(allowInteraction)
+    guard let token = tokens[id] else { throw CredentialError.invalidData }
+    return token
+  }
+
+  func delete(for id: UUID) throws {
+    tokens[id] = nil
   }
 }
 

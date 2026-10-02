@@ -2,7 +2,14 @@ import Foundation
 import Security
 
 @MainActor
-struct CredentialStore {
+protocol CredentialStorage {
+  func save(_ token: String, for id: UUID) throws
+  func read(for id: UUID, allowInteraction: Bool) throws -> String
+  func delete(for id: UUID) throws
+}
+
+@MainActor
+struct CredentialStore: CredentialStorage {
   private let service: String
 
   init(service: String = "com.ethanyxchen.github-maxxer") {
