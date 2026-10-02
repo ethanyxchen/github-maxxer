@@ -93,19 +93,23 @@ struct OverviewView: View {
         .font(.caption.weight(.medium)).foregroundStyle(.secondary)
         .padding(.horizontal, 14).padding(.bottom, 4)
         ForEach(breakdownFilters, id: \.self) { scope in
+          let today = model.progress(for: .day, filter: scope).count
+          let week = model.progress(for: .week, filter: scope).count
+          let month = model.progress(for: .month, filter: scope).count
+          let history = model.pullRequests(for: scope).count
           Button {
             filter = scope
           } label: {
             HStack(spacing: 10) {
               Text(scope.title).lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-              Text(model.progress(for: .day, filter: scope).count, format: .number)
+              Text(today, format: .number)
                 .frame(width: 58, alignment: .trailing)
-              Text(model.progress(for: .week, filter: scope).count, format: .number)
+              Text(week, format: .number)
                 .frame(width: 58, alignment: .trailing)
-              Text(model.progress(for: .month, filter: scope).count, format: .number)
+              Text(month, format: .number)
                 .frame(width: 58, alignment: .trailing)
-              Text(model.pullRequests(for: scope).count, format: .number)
+              Text(history, format: .number)
                 .frame(width: 66, alignment: .trailing)
               Image(systemName: filter == scope ? "checkmark" : "chevron.right")
                 .font(.system(size: 10, weight: .semibold))
@@ -123,7 +127,7 @@ struct OverviewView: View {
           }
           .buttonStyle(.plain)
           .accessibilityLabel(
-            "\(scope.title), \(model.pullRequests(for: scope).count) merged PRs in 90 days"
+            "\(scope.title): \(today) today, \(week) this week, \(month) this month, \(history) in 90 days"
           )
           .accessibilityHint("Show \(scope.title.lowercased()) activity")
         }
