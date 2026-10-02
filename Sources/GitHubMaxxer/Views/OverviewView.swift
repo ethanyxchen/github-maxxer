@@ -4,7 +4,10 @@ import SwiftUI
 struct OverviewView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.openSettings) private var openSettings
+  let filter: ActivityFilter
   let showAllPulls: () -> Void
+
+  private var pulls: [MergedPullRequest] { model.pullRequests(for: filter) }
 
   var body: some View {
     ScrollView {
@@ -21,28 +24,35 @@ struct OverviewView: View {
           }
           HStack(spacing: 14) {
             ForEach(GoalPeriod.allCases) { period in
-              GoalCard(period: period, progress: model.progress(for: period), now: model.now)
+              GoalCard(
+                period: period, progress: model.progress(for: period, filter: filter),
+                now: model.now, filter: filter)
             }
           }
         }
-        ContributionGraphView()
+        if filter == .all {
+          ContributionGraphView()
+        } else {
+          Text("GitHub's account-wide contribution calendar appears in All activity.")
+            .font(.caption).foregroundStyle(.secondary)
+        }
         VStack(alignment: .leading, spacing: 12) {
           HStack {
             Text("Recent merges").font(.title3.weight(.semibold))
             Spacer()
             Button("Show all", action: showAllPulls).buttonStyle(.link)
           }
-          if model.pullRequests.isEmpty {
+          if pulls.isEmpty {
             VStack(spacing: 8) {
               Image(systemName: "arrow.triangle.merge").font(.title2).foregroundStyle(.secondary)
-              Text("No merges in your tracked repositories").font(.headline)
+              Text("No merges for \(filter.title.lowercased())").font(.headline)
               Text("Merged PRs from the last 90 days will appear here.")
                 .font(.callout).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 28)
           } else {
             VStack(spacing: 0) {
-              ForEach(Array(model.pullRequests.prefix(5).enumerated()), id: \.element.id) {
+              ForEach(Array(pulls.prefix(5).enumerated()), id: \.element.id) {
                 index, pull in
                 if index > 0 { Divider().padding(.leading, 36) }
                 PullRequestRow(pull: pull).padding(.vertical, 12)
@@ -65,6 +75,7 @@ private struct GoalCard: View {
   let period: GoalPeriod
   let progress: GoalProgress
   let now: Date
+  let filter: ActivityFilter
   @State private var showingPulls = false
   @State private var isHovering = false
 
@@ -82,7 +93,7 @@ private struct GoalCard: View {
     .accessibilityHint("Show merged pull requests")
     .onHover { isHovering = $0 }
     .popover(isPresented: $showingPulls, arrowEdge: .bottom) {
-      PeriodPullRequestsView(period: period)
+      PeriodPullRequestsView(period: period, filter: filter)
     }
   }
 
@@ -132,10 +143,11 @@ private struct GoalCard: View {
 private struct PeriodPullRequestsView: View {
   @Environment(AppModel.self) private var model
   let period: GoalPeriod
+  let filter: ActivityFilter
   private let rowHeight: CGFloat = 64
 
   var body: some View {
-    let pulls = model.pullRequests(for: period)
+    let pulls = model.pullRequests(for: period, filter: filter)
     VStack(alignment: .leading, spacing: 0) {
       HStack(alignment: .firstTextBaseline) {
         VStack(alignment: .leading, spacing: 5) {

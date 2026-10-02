@@ -21,13 +21,15 @@ struct ActivityTests {
     ISO8601DateFormatter().date(from: value)!
   }
 
-  private func pull(_ id: String, _ merged: String, repo: String = "acme/app") -> MergedPullRequest
-  {
+  private func pull(
+    _ id: String, _ merged: String, repo: String = "acme/app",
+    ownerKind: RepositoryOwnerKind? = nil
+  ) -> MergedPullRequest {
     MergedPullRequest(
       id: id, title: "Improve search", number: 42,
       url: URL(string: "https://github.com/\(repo)/pull/42")!,
       mergedAt: date(merged),
-      repository: Repository(id: repo, nameWithOwner: repo, isPrivate: false)
+      repository: Repository(id: repo, nameWithOwner: repo, isPrivate: false, ownerKind: ownerKind)
     )
   }
 
@@ -81,6 +83,25 @@ struct ActivityTests {
       ScopedActivity(pullRequests: [shared, shared], scope: selected),
     ])
     #expect(pulls.map(\.id) == ["shared"])
+  }
+
+  @Test func activityFiltersSeparatePersonalAndOrganizationRepositories() {
+    let personal = pull("personal", "2026-09-30T10:00:00Z", repo: "alex/tools")
+    let work = pull("work", "2026-09-30T11:00:00Z", repo: "acme/app", ownerKind: .organization)
+    let collaborator = pull("collaborator", "2026-09-30T12:00:00Z", repo: "someone/project")
+    let pulls = [personal, work, collaborator]
+    let personalLogins: Set<String> = ["Alex"]
+    #expect(
+      ActivityFilter.personal.pullRequests(in: pulls, personalLogins: personalLogins).map(\.id) == [
+        "personal"
+      ])
+    #expect(
+      ActivityFilter.organization("ACME").pullRequests(in: pulls, personalLogins: personalLogins)
+        .map(\.id) == ["work"])
+    #expect(
+      ActivityFilter.organizations.pullRequests(in: pulls, personalLogins: personalLogins)
+        .map(\.id) == ["work"])
+    #expect(ActivityFilter.all.pullRequests(in: pulls, personalLogins: personalLogins).count == 3)
   }
 
   @Test func selectedOwnersIncludeNewRepositories() {

@@ -31,6 +31,7 @@ struct RootView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.scenePhase) private var scenePhase
   @State private var selection: Destination? = .overview
+  @State private var activityFilter: ActivityFilter = .all
   @State private var connectionDraft: ConnectionDraft?
 
   var body: some View {
@@ -81,6 +82,22 @@ struct RootView: View {
       .navigationTitle((selection ?? .overview).title)
       .toolbarBackground(.hidden, for: .windowToolbar)
       .toolbar {
+        if selection == .overview || selection == .pullRequests {
+          ToolbarItem {
+            Picker("Activity", selection: $activityFilter) {
+              Text("All activity").tag(ActivityFilter.all)
+              Text("Personal").tag(ActivityFilter.personal)
+              if !model.organizations.isEmpty {
+                Text("All organizations").tag(ActivityFilter.organizations)
+              }
+              ForEach(model.organizations, id: \.self) { owner in
+                Text(owner).tag(ActivityFilter.organization(owner))
+              }
+            }
+            .frame(width: 180)
+            .help("Show PR activity by repository owner")
+          }
+        }
         if model.isRefreshing {
           ToolbarItem { ProgressView().controlSize(.small).help("Refreshing GitHub activity") }
         }
@@ -109,6 +126,12 @@ struct RootView: View {
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { Task { await model.refresh() } }
     }
+    .onChange(of: model.organizations) { _, organizations in
+      if case .organization(let owner) = activityFilter, !organizations.contains(owner) {
+        activityFilter = .all
+      }
+      if activityFilter == .organizations, organizations.isEmpty { activityFilter = .all }
+    }
     .onAppear { model.startRefreshing() }
     .frame(minWidth: 920, minHeight: 680)
   }
@@ -124,9 +147,9 @@ struct RootView: View {
       if model.connections.isEmpty {
         WelcomeView { connectionDraft = ConnectionDraft() }
       } else {
-        OverviewView { selection = .pullRequests }
+        OverviewView(filter: activityFilter) { selection = .pullRequests }
       }
-    case .pullRequests: PullRequestsView()
+    case .pullRequests: PullRequestsView(filter: activityFilter)
     case .repositories: RepositoriesView()
     case .settings:
       SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }

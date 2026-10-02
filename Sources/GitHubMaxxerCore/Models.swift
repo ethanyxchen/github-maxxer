@@ -20,15 +20,30 @@ public struct Repository: Codable, Sendable, Hashable, Identifiable {
   public let id: String
   public let nameWithOwner: String
   public let isPrivate: Bool
+  public let ownerKind: RepositoryOwnerKind?
 
-  public init(id: String, nameWithOwner: String, isPrivate: Bool) {
+  public init(
+    id: String, nameWithOwner: String, isPrivate: Bool,
+    ownerKind: RepositoryOwnerKind? = nil
+  ) {
     self.id = id
     self.nameWithOwner = nameWithOwner
     self.isPrivate = isPrivate
+    self.ownerKind = ownerKind
   }
 
   public var owner: String { String(nameWithOwner.split(separator: "/").first ?? "") }
   public var name: String { String(nameWithOwner.split(separator: "/").last ?? "") }
+}
+
+public struct RepositoryOwnerKind: Codable, Sendable, Hashable {
+  public let type: String
+
+  public static let organization = Self(type: "Organization")
+
+  public init(type: String) { self.type = type }
+
+  private enum CodingKeys: String, CodingKey { case type = "__typename" }
 }
 
 public struct MergedPullRequest: Codable, Sendable, Hashable, Identifiable {

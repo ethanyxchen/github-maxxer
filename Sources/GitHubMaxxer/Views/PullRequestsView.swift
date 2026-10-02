@@ -3,11 +3,14 @@ import SwiftUI
 
 struct PullRequestsView: View {
   @Environment(AppModel.self) private var model
+  let filter: ActivityFilter
   @State private var search = ""
   @State private var period: GoalPeriod?
 
   private var pulls: [MergedPullRequest] {
-    let pulls = period.map { model.pullRequests(for: $0) } ?? model.pullRequests
+    let pulls =
+      period.map { model.pullRequests(for: $0, filter: filter) }
+      ?? model.pullRequests(for: filter)
     return pulls.filter { pull in
       search.isEmpty || pull.title.localizedCaseInsensitiveContains(search)
         || pull.repository.nameWithOwner.localizedCaseInsensitiveContains(search)

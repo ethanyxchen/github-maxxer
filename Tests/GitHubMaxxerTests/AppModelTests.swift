@@ -55,6 +55,19 @@ struct AppModelTests {
     #expect(Set(savedGoals.keys) == ["daily"])
   }
 
+  @Test func previewSeparatesOrganizationAndPersonalActivity() {
+    let model = AppModel(preview: true)
+    #expect(model.organizations == ["northstar"])
+    let work = model.pullRequests(for: .organization("northstar"))
+    let personal = model.pullRequests(for: .personal)
+    #expect(!work.isEmpty)
+    #expect(!personal.isEmpty)
+    #expect(work.count + personal.count == model.pullRequests.count)
+    #expect(
+      model.progress(for: .month, filter: .organization("northstar")).count
+        == GoalPeriod.month.count(in: work, now: model.now))
+  }
+
   @Test func goalsSurviveRelaunchAndStayPositive() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

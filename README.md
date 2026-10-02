@@ -63,6 +63,7 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 - Targets count PRs **you authored**, using the time they were **merged**, including merges performed by someone else. Closed but unmerged PRs do not count.
 - Daily and monthly targets use your Mac's time zone. Weeks start Monday.
 - **Repositories** controls which repositories count toward PR targets. Selecting an owner includes its current and future accessible repositories. Individual selections use GitHub repository IDs, so renaming a repository preserves its selection.
+- Use the **Activity** menu on Overview or Pull Requests to see all tracked PRs, personal PRs in repositories owned by your connected accounts, PRs across all organizations, or PRs for one organization. The selected view also filters target progress and recent merges. GitHub's contribution calendar appears in the all-activity view because its account-wide counts cannot be split by organization.
 - The contribution calendar comes directly from GitHub and retains GitHub's counts and intensity levels. It includes account-wide commits, issues, reviews, and opened PRs; its data is independent of the repositories selected for PR targets.
 - Merged PR history covers the last 90 calendar days. Large searches are split into smaller date ranges to avoid GitHub's 1,000-result search limit.
 

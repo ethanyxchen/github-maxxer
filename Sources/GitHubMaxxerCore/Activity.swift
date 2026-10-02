@@ -93,6 +93,39 @@ public struct ScopedActivity: Sendable {
   }
 }
 
+public enum ActivityFilter: Hashable, Sendable {
+  case all
+  case personal
+  case organizations
+  case organization(String)
+
+  public var title: String {
+    switch self {
+    case .all: "All activity"
+    case .personal: "Personal"
+    case .organizations: "All organizations"
+    case .organization(let owner): owner
+    }
+  }
+
+  public func pullRequests(
+    in pullRequests: [MergedPullRequest], personalLogins: Set<String>
+  ) -> [MergedPullRequest] {
+    pullRequests.filter { pull in
+      switch self {
+      case .all: true
+      case .personal:
+        personalLogins.contains { $0.caseInsensitiveCompare(pull.repository.owner) == .orderedSame }
+      case .organizations:
+        pull.repository.ownerKind == .organization
+      case .organization(let owner):
+        pull.repository.ownerKind == .organization
+          && pull.repository.owner.caseInsensitiveCompare(owner) == .orderedSame
+      }
+    }
+  }
+}
+
 public enum Activity {
   public static func historyInterval(endingAt now: Date, calendar: Calendar = .current)
     -> DateInterval

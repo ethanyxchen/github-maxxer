@@ -66,6 +66,19 @@ final class AppModel {
     ).filter { interval.contains($0.mergedAt) }
   }
 
+  var organizations: [String] {
+    let repositories = connections.flatMap { account in
+      account.snapshot.repositories.filter { account.scope.includes($0) }
+        + account.snapshot.pullRequests.map(\.repository).filter { account.scope.includes($0) }
+    }
+    return Array(Set(repositories.filter { $0.ownerKind == .organization }.map(\.owner)))
+      .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+  }
+
+  func pullRequests(for filter: ActivityFilter) -> [MergedPullRequest] {
+    filter.pullRequests(in: pullRequests, personalLogins: Set(connections.map(\.profile.login)))
+  }
+
   var contributionAccounts: [AccountConnection] {
     var seen = Set<String>()
     return connections.sorted {
@@ -89,12 +102,14 @@ final class AppModel {
       }
   }
 
-  func progress(for period: GoalPeriod) -> GoalProgress {
-    GoalProgress(count: pullRequests(for: period).count, target: goals[period])
+  func progress(for period: GoalPeriod, filter: ActivityFilter = .all) -> GoalProgress {
+    GoalProgress(count: pullRequests(for: period, filter: filter).count, target: goals[period])
   }
 
-  func pullRequests(for period: GoalPeriod) -> [MergedPullRequest] {
-    period.pullRequests(in: pullRequests, now: now)
+  func pullRequests(for period: GoalPeriod, filter: ActivityFilter = .all)
+    -> [MergedPullRequest]
+  {
+    period.pullRequests(in: pullRequests(for: filter), now: now)
   }
 
   func setDailyGoal(_ value: Int) {

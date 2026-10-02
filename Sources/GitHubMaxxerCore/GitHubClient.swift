@@ -41,7 +41,7 @@ public struct GitHubClient: Sendable {
         query($after: String) {
           viewer {
             repositories(first: 100, after: $after, ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
-              nodes { id nameWithOwner isPrivate }
+              nodes { id nameWithOwner isPrivate ownerKind: owner { __typename } }
               pageInfo { hasNextPage endCursor }
             }
           }
@@ -94,7 +94,7 @@ public struct GitHubClient: Sendable {
             nodes {
               ... on PullRequest {
                 id title number url mergedAt
-                repository { id nameWithOwner isPrivate }
+                repository { id nameWithOwner isPrivate ownerKind: owner { __typename } }
               }
             }
             pageInfo { hasNextPage endCursor }
