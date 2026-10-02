@@ -8,8 +8,12 @@ enum PreviewData {
       avatarUrl: URL(string: "https://github.com/identicons/alexmorgan.png")!
     )
     let repositories = [
-      Repository(id: "1", nameWithOwner: "northstar/desktop", isPrivate: true),
-      Repository(id: "2", nameWithOwner: "northstar/platform", isPrivate: true),
+      Repository(
+        id: "1", nameWithOwner: "northstar/desktop", isPrivate: true,
+        ownerKind: .organization),
+      Repository(
+        id: "2", nameWithOwner: "northstar/platform", isPrivate: true,
+        ownerKind: .organization),
       Repository(id: "3", nameWithOwner: "alexmorgan/dotfiles", isPrivate: false),
       Repository(id: "4", nameWithOwner: "alexmorgan/swift-tools", isPrivate: false),
     ]

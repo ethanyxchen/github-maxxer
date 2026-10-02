@@ -49,6 +49,7 @@ struct GitHubClientTests {
       let after = (body["variables"] as? [String: Any])?["after"] as? String
       if query.contains("contributionsCollection") { return calendarResponse }
       if query.contains("repositories(first") {
+        #expect(query.contains("ownerKind: owner { __typename }"))
         let id = after == nil ? "r1" : "r2"
         let next = after == nil ? "\"repo-page-2\"" : "null"
         return StubResponse(
@@ -56,6 +57,7 @@ struct GitHubClientTests {
             "{\"data\":{\"viewer\":{\"repositories\":{\"nodes\":[\(repositoryJSON(id))],\"pageInfo\":{\"hasNextPage\":\(after == nil),\"endCursor\":\(next)}}}}}"
         )
       }
+      #expect(query.contains("ownerKind: owner { __typename }"))
       let id = after == nil ? "p1" : "p2"
       return searchResponse(
         count: 2, nodes: [pullJSON(id)], next: after == nil ? "pull-page-2" : nil)
@@ -63,6 +65,8 @@ struct GitHubClientTests {
     let snapshot = try await client.snapshot(login: "alex", now: fixedNow)
     #expect(snapshot.repositories.map(\.id) == ["r1", "r2"])
     #expect(snapshot.pullRequests.map(\.id) == ["p1", "p2"])
+    #expect(snapshot.repositories.allSatisfy { $0.ownerKind == .organization })
+    #expect(snapshot.pullRequests.allSatisfy { $0.repository.ownerKind == .organization })
     #expect(snapshot.contributions.totalContributions == 12)
   }
 
@@ -118,7 +122,7 @@ private let emptyRepositories = StubResponse(
 )
 
 private func repositoryJSON(_ id: String) -> String {
-  "{\"id\":\"\(id)\",\"nameWithOwner\":\"acme/\(id)\",\"isPrivate\":false}"
+  "{\"id\":\"\(id)\",\"nameWithOwner\":\"acme/\(id)\",\"isPrivate\":false,\"ownerKind\":{\"__typename\":\"Organization\"}}"
 }
 
 private func pullJSON(_ id: String) -> String {

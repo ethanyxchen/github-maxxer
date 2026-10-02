@@ -4,7 +4,13 @@ import SwiftUI
 struct OverviewView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.openSettings) private var openSettings
+  @Binding var filter: ActivityFilter
   let showAllPulls: () -> Void
+
+  private var pulls: [MergedPullRequest] { model.pullRequests(for: filter) }
+  private var breakdownFilters: [ActivityFilter] {
+    [.all, .personal] + model.organizations.map(ActivityFilter.organization)
+  }
 
   var body: some View {
     ScrollView {
@@ -21,28 +27,36 @@ struct OverviewView: View {
           }
           HStack(spacing: 14) {
             ForEach(GoalPeriod.allCases) { period in
-              GoalCard(period: period, progress: model.progress(for: period), now: model.now)
+              GoalCard(
+                period: period, progress: model.progress(for: period, filter: filter),
+                now: model.now, filter: filter)
             }
           }
         }
-        ContributionGraphView()
+        activityBreakdown
+        if filter == .all {
+          ContributionGraphView()
+        } else {
+          Text("GitHub's account-wide contribution calendar appears in All activity.")
+            .font(.caption).foregroundStyle(.secondary)
+        }
         VStack(alignment: .leading, spacing: 12) {
           HStack {
             Text("Recent merges").font(.title3.weight(.semibold))
             Spacer()
             Button("Show all", action: showAllPulls).buttonStyle(.link)
           }
-          if model.pullRequests.isEmpty {
+          if pulls.isEmpty {
             VStack(spacing: 8) {
               Image(systemName: "arrow.triangle.merge").font(.title2).foregroundStyle(.secondary)
-              Text("No merges in your tracked repositories").font(.headline)
+              Text("No merges for \(filter.title.lowercased())").font(.headline)
               Text("Merged PRs from the last 90 days will appear here.")
                 .font(.callout).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 28)
           } else {
             VStack(spacing: 0) {
-              ForEach(Array(model.pullRequests.prefix(5).enumerated()), id: \.element.id) {
+              ForEach(Array(pulls.prefix(5).enumerated()), id: \.element.id) {
                 index, pull in
                 if index > 0 { Divider().padding(.leading, 36) }
                 PullRequestRow(pull: pull).padding(.vertical, 12)
@@ -59,12 +73,77 @@ struct OverviewView: View {
     }
     .background(Color(nsColor: .windowBackgroundColor))
   }
+
+  private var activityBreakdown: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("Activity by organisation").font(.title3.weight(.semibold))
+        Text("Merged PRs in tracked repositories, with personal work shown separately.")
+          .font(.callout).foregroundStyle(.secondary)
+      }
+      VStack(spacing: 0) {
+        HStack(spacing: 10) {
+          Text("Owner").frame(maxWidth: .infinity, alignment: .leading)
+          Text("Today").frame(width: 58, alignment: .trailing)
+          Text("Week").frame(width: 58, alignment: .trailing)
+          Text("Month").frame(width: 58, alignment: .trailing)
+          Text("90 days").frame(width: 66, alignment: .trailing)
+          Color.clear.frame(width: 12)
+        }
+        .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+        .padding(.horizontal, 14).padding(.bottom, 4)
+        ForEach(breakdownFilters, id: \.self) { scope in
+          let today = model.progress(for: .day, filter: scope).count
+          let week = model.progress(for: .week, filter: scope).count
+          let month = model.progress(for: .month, filter: scope).count
+          let history = model.pullRequests(for: scope).count
+          Button {
+            filter = scope
+          } label: {
+            HStack(spacing: 10) {
+              Text(scope.title).lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+              Text(today, format: .number)
+                .frame(width: 58, alignment: .trailing)
+              Text(week, format: .number)
+                .frame(width: 58, alignment: .trailing)
+              Text(month, format: .number)
+                .frame(width: 58, alignment: .trailing)
+              Text(history, format: .number)
+                .frame(width: 66, alignment: .trailing)
+              Image(systemName: filter == scope ? "checkmark" : "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .frame(width: 12)
+            }
+            .font(.callout)
+            .monospacedDigit()
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .background(
+              filter == scope ? Color.accentColor.opacity(0.1) : Color.clear,
+              in: RoundedRectangle(cornerRadius: 8)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 8))
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(
+            "\(scope.title): \(today) today, \(week) this week, \(month) this month, \(history) in 90 days"
+          )
+          .accessibilityHint("Show \(scope.title.lowercased()) activity")
+        }
+      }
+    }
+    .padding(20)
+    .background(.background, in: RoundedRectangle(cornerRadius: 10))
+    .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(.separator.opacity(0.6)) }
+  }
 }
 
 private struct GoalCard: View {
   let period: GoalPeriod
   let progress: GoalProgress
   let now: Date
+  let filter: ActivityFilter
   @State private var showingPulls = false
   @State private var isHovering = false
 
@@ -82,7 +161,7 @@ private struct GoalCard: View {
     .accessibilityHint("Show merged pull requests")
     .onHover { isHovering = $0 }
     .popover(isPresented: $showingPulls, arrowEdge: .bottom) {
-      PeriodPullRequestsView(period: period)
+      PeriodPullRequestsView(period: period, filter: filter)
     }
   }
 
@@ -132,10 +211,11 @@ private struct GoalCard: View {
 private struct PeriodPullRequestsView: View {
   @Environment(AppModel.self) private var model
   let period: GoalPeriod
+  let filter: ActivityFilter
   private let rowHeight: CGFloat = 64
 
   var body: some View {
-    let pulls = model.pullRequests(for: period)
+    let pulls = model.pullRequests(for: period, filter: filter)
     VStack(alignment: .leading, spacing: 0) {
       HStack(alignment: .firstTextBaseline) {
         VStack(alignment: .leading, spacing: 5) {
