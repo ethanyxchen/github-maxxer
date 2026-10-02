@@ -147,7 +147,7 @@ struct RootView: View {
       if model.connections.isEmpty {
         WelcomeView { connectionDraft = ConnectionDraft() }
       } else {
-        OverviewView(filter: activityFilter) { selection = .pullRequests }
+        OverviewView(filter: $activityFilter) { selection = .pullRequests }
       }
     case .pullRequests: PullRequestsView(filter: activityFilter)
     case .repositories: RepositoriesView()

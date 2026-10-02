@@ -4,10 +4,15 @@ import SwiftUI
 struct OverviewView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.openSettings) private var openSettings
-  let filter: ActivityFilter
+  @Binding var filter: ActivityFilter
   let showAllPulls: () -> Void
 
   private var pulls: [MergedPullRequest] { model.pullRequests(for: filter) }
+  private var breakdownFilters: [ActivityFilter] {
+    [.all, .personal]
+      + (model.organizations.isEmpty ? [] : [.organizations])
+      + model.organizations.map(ActivityFilter.organization)
+  }
 
   var body: some View {
     ScrollView {
@@ -30,6 +35,7 @@ struct OverviewView: View {
             }
           }
         }
+        activityBreakdown
         if filter == .all {
           ContributionGraphView()
         } else {
@@ -68,6 +74,66 @@ struct OverviewView: View {
       .frame(maxWidth: .infinity)
     }
     .background(Color(nsColor: .windowBackgroundColor))
+  }
+
+  private var activityBreakdown: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("Activity by organisation").font(.title3.weight(.semibold))
+        Text("Merged PRs in tracked repositories, with personal work shown separately.")
+          .font(.callout).foregroundStyle(.secondary)
+      }
+      VStack(spacing: 0) {
+        HStack(spacing: 10) {
+          Text("Owner").frame(maxWidth: .infinity, alignment: .leading)
+          Text("Today").frame(width: 58, alignment: .trailing)
+          Text("Week").frame(width: 58, alignment: .trailing)
+          Text("Month").frame(width: 58, alignment: .trailing)
+          Text("90 days").frame(width: 66, alignment: .trailing)
+          Color.clear.frame(width: 12)
+        }
+        .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+        .padding(.horizontal, 14).padding(.bottom, 4)
+        ForEach(breakdownFilters, id: \.self) { scope in
+          Button {
+            filter = scope
+          } label: {
+            HStack(spacing: 10) {
+              Text(scope.title).lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+              Text(model.progress(for: .day, filter: scope).count, format: .number)
+                .frame(width: 58, alignment: .trailing)
+              Text(model.progress(for: .week, filter: scope).count, format: .number)
+                .frame(width: 58, alignment: .trailing)
+              Text(model.progress(for: .month, filter: scope).count, format: .number)
+                .frame(width: 58, alignment: .trailing)
+              Text(model.pullRequests(for: scope).count, format: .number)
+                .frame(width: 66, alignment: .trailing)
+              Image(systemName: filter == scope ? "checkmark" : "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .frame(width: 12)
+            }
+            .font(.callout)
+            .monospacedDigit()
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .background(
+              filter == scope ? Color.accentColor.opacity(0.1) : Color.clear,
+              in: RoundedRectangle(cornerRadius: 8)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 8))
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(
+            "\(scope.title), \(model.pullRequests(for: scope).count) merged PRs in 90 days"
+          )
+          .accessibilityHint("Show \(scope.title.lowercased()) activity")
+        }
+      }
+    }
+    .padding(20)
+    .background(.background, in: RoundedRectangle(cornerRadius: 10))
+    .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(.separator.opacity(0.6)) }
   }
 }
 
