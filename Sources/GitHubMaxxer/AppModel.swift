@@ -26,13 +26,14 @@ final class AppModel {
   private(set) var storageError: String?
   private(set) var now = Date.now
   let isPreview: Bool
-  private let credentials: CredentialStore
+  private let credentials: any CredentialStorage
   private let session: URLSession
   private let stateURL: URL
   private var refreshTask: Task<Void, Never>?
 
   init(
-    preview: Bool = false, stateURL: URL? = nil, credentials: CredentialStore = CredentialStore(),
+    preview: Bool = false, stateURL: URL? = nil,
+    credentials: any CredentialStorage = CredentialStore(),
     session: URLSession = .shared
   ) {
     isPreview = preview
