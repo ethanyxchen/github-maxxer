@@ -98,9 +98,6 @@ struct ActivityTests {
     #expect(
       ActivityFilter.organization("ACME").pullRequests(in: pulls, personalLogins: personalLogins)
         .map(\.id) == ["work"])
-    #expect(
-      ActivityFilter.organizations.pullRequests(in: pulls, personalLogins: personalLogins)
-        .map(\.id) == ["work"])
     #expect(ActivityFilter.all.pullRequests(in: pulls, personalLogins: personalLogins).count == 3)
   }
 

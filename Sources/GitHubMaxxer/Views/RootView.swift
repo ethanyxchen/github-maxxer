@@ -87,9 +87,6 @@ struct RootView: View {
             Picker("Activity", selection: $activityFilter) {
               Text("All activity").tag(ActivityFilter.all)
               Text("Personal").tag(ActivityFilter.personal)
-              if !model.organizations.isEmpty {
-                Text("All organizations").tag(ActivityFilter.organizations)
-              }
               ForEach(model.organizations, id: \.self) { owner in
                 Text(owner).tag(ActivityFilter.organization(owner))
               }
@@ -130,7 +127,6 @@ struct RootView: View {
       if case .organization(let owner) = activityFilter, !organizations.contains(owner) {
         activityFilter = .all
       }
-      if activityFilter == .organizations, organizations.isEmpty { activityFilter = .all }
     }
     .onAppear { model.startRefreshing() }
     .frame(minWidth: 920, minHeight: 680)

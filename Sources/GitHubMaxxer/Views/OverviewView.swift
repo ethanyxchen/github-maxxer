@@ -9,9 +9,7 @@ struct OverviewView: View {
 
   private var pulls: [MergedPullRequest] { model.pullRequests(for: filter) }
   private var breakdownFilters: [ActivityFilter] {
-    [.all, .personal]
-      + (model.organizations.isEmpty ? [] : [.organizations])
-      + model.organizations.map(ActivityFilter.organization)
+    [.all, .personal] + model.organizations.map(ActivityFilter.organization)
   }
 
   var body: some View {
