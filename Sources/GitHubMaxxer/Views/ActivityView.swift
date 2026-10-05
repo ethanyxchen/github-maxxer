@@ -118,14 +118,20 @@ struct ActivityView: View {
         ForEach(days, id: \.day) { entry in
           Section {
             ForEach(entry.pulls) { pull in
-              PullRequestRow(pull: pull).padding(.vertical, 9)
+              PullRequestRow(pull: pull, landing: landing(pull)).padding(.vertical, 9)
+                .transition(.move(edge: .leading).combined(with: .opacity))
             }
           } header: {
             dayHeader(entry.day, count: entry.pulls.count)
           }
         }
       }
+      .animation(.spring(duration: 0.5, bounce: 0.3).delay(Slam.impact), value: model.landing)
     }
+  }
+
+  private func landing(_ pull: MergedPullRequest) -> Landing? {
+    model.landing.flatMap { $0.pullRequests.contains(pull.id) ? $0 : nil }
   }
 
   private var pager: some View {
@@ -206,6 +212,7 @@ private func periodDateLabel(_ period: GoalPeriod, now: Date) -> String {
 
 private struct PullRequestRow: View {
   let pull: MergedPullRequest
+  let landing: Landing?
 
   var body: some View {
     Link(destination: pull.url) {
@@ -236,6 +243,7 @@ private struct PullRequestRow: View {
           .lineLimit(1)
       }
       Spacer(minLength: 12)
+      if let landing { MergedStamp(landing: landing) }
       Text(pull.mergedAt, format: .dateTime.hour().minute())
         .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
         .help(pull.mergedAt.formatted(date: .complete, time: .shortened))

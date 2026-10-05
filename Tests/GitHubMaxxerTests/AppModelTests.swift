@@ -258,6 +258,28 @@ struct AppModelTests {
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.pullRequests == before)
   }
+
+  @Test func refreshLandsOnlyNewlyMergedPullRequests() async throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let connection = PreviewData.connections(now: .now)[0]
+    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    let store = TestCredentials()
+    try store.save("test-credential", for: connection.id)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MergedProtocol.self]
+    let model = AppModel(
+      stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+
+    await model.refresh()
+    let landing = try #require(model.landing)
+    await model.refresh()
+
+    #expect(landing.pullRequests == ["fresh-pr"])
+    #expect(model.landing == landing)
+  }
 }
 
 @MainActor
@@ -330,6 +352,30 @@ private final class UnavailableProtocol: URLProtocol, @unchecked Sendable {
         url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!,
       cacheStoragePolicy: .notAllowed)
     client?.urlProtocol(self, didLoad: Data("{}".utf8))
+    client?.urlProtocolDidFinishLoading(self)
+  }
+  override func stopLoading() {}
+}
+
+private final class MergedProtocol: URLProtocol, @unchecked Sendable {
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    let mergedAt = ISO8601DateFormatter().string(from: .now.addingTimeInterval(-60))
+    let body =
+      (try? requestBody(request)["query"] as? String)?.contains("search(query") == true
+      ? """
+      {"data":{"search":{"issueCount":1,"nodes":[{"id":"fresh-pr","title":"Slam","number":1,"url":"https://github.com/acme/app/pull/1","mergedAt":"\(mergedAt)","repository":{"id":"r1","nameWithOwner":"acme/app","isPrivate":false,"ownerKind":{"__typename":"User"}}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}
+      """
+      : """
+      {"data":{"viewer":{"repositories":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
+      """
+    client?.urlProtocol(
+      self,
+      didReceive: HTTPURLResponse(
+        url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+      cacheStoragePolicy: .notAllowed)
+    client?.urlProtocol(self, didLoad: Data(body.utf8))
     client?.urlProtocolDidFinishLoading(self)
   }
   override func stopLoading() {}

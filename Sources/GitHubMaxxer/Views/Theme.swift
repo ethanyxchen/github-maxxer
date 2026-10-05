@@ -15,12 +15,21 @@ enum Palette {
   private static func dynamic(light: UInt32, dark: UInt32) -> Color {
     Color(
       nsColor: NSColor(name: nil) { appearance in
-        let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
-        return NSColor(
-          srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255,
-          blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+        NSColor(hex: appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light)
       })
   }
+}
+
+extension NSColor {
+  convenience init(hex: UInt32) {
+    self.init(
+      srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255,
+      blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+  }
+}
+
+extension Color {
+  init(hex: UInt32) { self.init(nsColor: NSColor(hex: hex)) }
 }
 
 extension Font {

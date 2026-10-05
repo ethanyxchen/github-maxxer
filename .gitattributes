@@ -1,0 +1,4 @@
+Sources/GitHubMaxxer/Resources/*.jpg filter=lfs diff=lfs merge=lfs -text
+Sources/GitHubMaxxer/Resources/*.png filter=lfs diff=lfs merge=lfs -text
+Sources/GitHubMaxxer/Resources/*.hdr filter=lfs diff=lfs merge=lfs -text
+Sources/GitHubMaxxer/Resources/*.caf filter=lfs diff=lfs merge=lfs -text

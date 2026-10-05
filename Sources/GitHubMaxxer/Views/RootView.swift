@@ -74,6 +74,7 @@ struct RootView: View {
           ErrorBanner(message: error, additionalCount: model.errors.count - 1)
         }
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
+          .modifier(SlamShake(landing: model.landing))
       }
       .navigationTitle(title(for: selection))
       .toolbar(removing: .title)
@@ -98,6 +99,7 @@ struct RootView: View {
       }
     }
     .navigationSplitViewStyle(.balanced)
+    .overlay { HammerSlam(landing: model.landing) }
     .sheet(item: $connectionDraft) { draft in
       ConnectionSheet(existing: draft.existing)
         .environment(model)

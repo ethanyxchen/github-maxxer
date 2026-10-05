@@ -31,6 +31,11 @@ struct OrganizationPreferences: Codable {
   }
 }
 
+struct Landing: Equatable {
+  let pullRequests: Set<String>
+  let date: Date
+}
+
 private struct SavedState: Codable {
   var goals = Goals()
   var connections: [AccountConnection] = []
@@ -59,6 +64,7 @@ final class AppModel {
   private(set) var connectionErrors: [UUID: String] = [:]
   private(set) var storageError: String?
   private(set) var now = Date.now
+  private(set) var landing: Landing?
   let isPreview: Bool
   private let credentials: any CredentialStorage
   private let session: URLSession
@@ -260,7 +266,10 @@ final class AppModel {
           login: account.profile.login, now: requestedAt)
         guard let index = connections.firstIndex(where: { $0.id == account.id }) else { continue }
         if connections[index].snapshot.fetchedAt <= snapshot.fetchedAt {
+          let known = Set(pullRequests.map(\.id))
           connections[index].snapshot = snapshot
+          let arrived = Set(pullRequests.map(\.id)).subtracting(known)
+          if !arrived.isEmpty { landing = Landing(pullRequests: arrived, date: .now) }
         }
         connectionErrors[account.id] = nil
       } catch is CancellationError {
