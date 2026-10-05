@@ -16,6 +16,19 @@ struct OrganizationPreferences: Codable {
   var pinned: [String] = []
   var hidden: Set<String> = []
   var names: [String: String] = [:]
+
+  static func key(_ organization: String) -> String { organization.lowercased() }
+
+  func keeping(_ organizations: Set<String>) -> OrganizationPreferences {
+    var seen = Set<String>()
+    return OrganizationPreferences(
+      pinned: pinned.map(Self.key).filter {
+        organizations.contains($0) && seen.insert($0).inserted
+      },
+      hidden: Set(hidden.map(Self.key)).intersection(organizations),
+      names: Dictionary(names.map { (Self.key($0.key), $0.value) }) { first, _ in first }
+        .filter { organizations.contains($0.key) })
+  }
 }
 
 private struct SavedState: Codable {
@@ -74,6 +87,7 @@ final class AppModel {
         goals = state.goals
         connections = state.connections
         organizationPreferences = state.organizations
+        pruneOrganizationPreferences()
       } catch {
         storageError = "Saved activity could not be loaded. \(error.localizedDescription)"
       }
@@ -99,41 +113,45 @@ final class AppModel {
   }
 
   var sidebarOrganizations: [String] {
-    let visible = organizations.filter { !organizationPreferences.hidden.contains($0) }
-    return organizationPreferences.pinned.filter(visible.contains)
-      + visible.filter { !organizationPreferences.pinned.contains($0) }
+    let visible = organizations.filter { !isHidden($0) }
+    return organizationPreferences.pinned.compactMap { key in
+      visible.first { OrganizationPreferences.key($0) == key }
+    } + visible.filter { !isPinned($0) }
   }
 
   func displayName(for organization: String) -> String {
-    organizationPreferences.names[organization] ?? organization
+    organizationPreferences.names[OrganizationPreferences.key(organization)] ?? organization
   }
 
   func isPinned(_ organization: String) -> Bool {
-    organizationPreferences.pinned.contains(organization)
+    organizationPreferences.pinned.contains(OrganizationPreferences.key(organization))
   }
 
   func isHidden(_ organization: String) -> Bool {
-    organizationPreferences.hidden.contains(organization)
+    organizationPreferences.hidden.contains(OrganizationPreferences.key(organization))
   }
 
   func setPinned(_ pinned: Bool, organization: String) {
-    organizationPreferences.pinned.removeAll { $0 == organization }
-    if pinned { organizationPreferences.pinned.append(organization) }
+    let key = OrganizationPreferences.key(organization)
+    organizationPreferences.pinned.removeAll { $0 == key }
+    if pinned { organizationPreferences.pinned.append(key) }
     persist()
   }
 
   func setHidden(_ hidden: Bool, organization: String) {
+    let key = OrganizationPreferences.key(organization)
     if hidden {
-      organizationPreferences.hidden.insert(organization)
+      organizationPreferences.hidden.insert(key)
     } else {
-      organizationPreferences.hidden.remove(organization)
+      organizationPreferences.hidden.remove(key)
     }
     persist()
   }
 
   func renameOrganization(_ organization: String, to name: String) {
     let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    organizationPreferences.names[organization] = name.isEmpty ? nil : name
+    organizationPreferences.names[OrganizationPreferences.key(organization)] =
+      name.isEmpty ? nil : name
     persist()
   }
 
@@ -269,8 +287,18 @@ final class AppModel {
     }
   }
 
+  private func pruneOrganizationPreferences() {
+    guard !connections.isEmpty else { return }
+    let owners = connections.flatMap {
+      $0.snapshot.repositories + $0.snapshot.pullRequests.map(\.repository)
+    }
+    organizationPreferences = organizationPreferences.keeping(
+      Set(owners.map { OrganizationPreferences.key($0.owner) }))
+  }
+
   private func persist() {
     guard !isPreview else { return }
+    pruneOrganizationPreferences()
     do {
       let directory = stateURL.deletingLastPathComponent()
       try FileManager.default.createDirectory(
