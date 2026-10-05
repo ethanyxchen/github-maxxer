@@ -108,8 +108,9 @@ final class AppModel {
       account.snapshot.repositories.filter { account.scope.includes($0) }
         + account.snapshot.pullRequests.map(\.repository).filter { account.scope.includes($0) }
     }
-    return Array(Set(repositories.filter { $0.ownerKind == .organization }.map(\.owner)))
-      .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    let owners = repositories.filter { $0.ownerKind == .organization }.map(\.owner)
+    return Dictionary(owners.map { (OrganizationPreferences.key($0), $0) }) { first, _ in first }
+      .values.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
   }
 
   var sidebarOrganizations: [String] {

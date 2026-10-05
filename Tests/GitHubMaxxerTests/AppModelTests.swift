@@ -113,7 +113,7 @@ struct AppModelTests {
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
     let sample = PreviewData.connections(now: .now)[0]
-    let repositories = ["acme/app", "beta/app"].map {
+    let repositories = ["acme/app", "beta/app", "Beta/tools"].map {
       Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
     }
     let connection = AccountConnection(
