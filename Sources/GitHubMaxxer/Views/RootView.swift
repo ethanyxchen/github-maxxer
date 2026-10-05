@@ -39,23 +39,23 @@ struct RootView: View {
 
   var body: some View {
     NavigationSplitView {
-      ScrollView {
-        VStack(alignment: .leading, spacing: 22) {
-          section("Activity") {
-            row(.activity(.all))
-            row(.activity(.personal))
-            ForEach(model.organizations, id: \.self) { owner in
-              row(.activity(.organization(owner)))
-            }
-          }
-          section("Insights") { row(.history) }
-          section("Manage") {
-            row(.repositories)
-            row(.settings)
+      VStack(alignment: .leading, spacing: 22) {
+        section("Activity") {
+          row(.activity(.all))
+          row(.activity(.personal))
+          ForEach(model.organizations, id: \.self) { owner in
+            row(.activity(.organization(owner)))
           }
         }
-        .padding(.horizontal, 10).padding(.vertical, 12)
+        section("Insights") { row(.history) }
+        section("Manage") {
+          row(.repositories)
+          row(.settings)
+        }
+        Spacer(minLength: 0)
       }
+      .padding(.horizontal, 10).padding(.vertical, 12)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       .background(Palette.sidebar)
       .background(SidebarResizeBehavior())
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
