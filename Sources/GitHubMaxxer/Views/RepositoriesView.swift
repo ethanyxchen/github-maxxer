@@ -55,7 +55,7 @@ struct RepositoriesView: View {
                   }
                 ))
               Spacer()
-              Menu("Track owners") {
+              Menu("Count repositories from") {
                 ForEach(Set(account.snapshot.repositories.map(\.owner)).sorted(), id: \.self) {
                   owner in
                   Toggle(owner, isOn: ownerBinding(owner, account: account))
@@ -63,9 +63,20 @@ struct RepositoriesView: View {
               }
               .fixedSize()
               .disabled(account.scope.allRepositories)
+              Menu("Show in sidebar") {
+                ForEach(model.organizations, id: \.self) { owner in
+                  Toggle(
+                    model.displayName(for: owner),
+                    isOn: Binding(
+                      get: { !model.isHidden(owner) },
+                      set: { model.setHidden(!$0, organization: owner) }))
+                }
+              }
+              .fixedSize()
+              .disabled(model.organizations.isEmpty)
             }
             Text(
-              "Owner selections include current and future repositories. Tracked repositories count toward your PR targets."
+              "Only PRs you author count. Choosing an organisation or account under Count repositories from includes all of its repositories, now and in future."
             )
             .font(.callout).foregroundStyle(.secondary)
           }
@@ -115,7 +126,7 @@ struct RepositoriesView: View {
             "Connect GitHub to choose which repositories count toward your targets."))
       }
     }
-    .searchable(text: $search, prompt: "Find a repository or owner")
+    .searchable(text: $search, placement: .toolbar, prompt: "Find a repository or owner")
   }
 
   private func ownerBinding(_ owner: String, account: AccountConnection) -> Binding<Bool> {

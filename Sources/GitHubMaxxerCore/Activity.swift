@@ -48,6 +48,17 @@ public enum GoalPeriod: String, CaseIterable, Codable, Sendable, Identifiable {
       $0.mergedAt >= interval.start && $0.mergedAt < interval.end && $0.mergedAt <= now
     }
   }
+
+  public func pace(target: Int, now: Date, calendar: Calendar = .current) -> Int {
+    let interval = interval(containing: now, calendar: calendar)
+    let workdays = sequence(first: interval.start) {
+      calendar.date(byAdding: .day, value: 1, to: $0)
+    }
+    .prefix { $0 < interval.end }
+    .filter { !calendar.isDateInWeekend($0) }
+    guard !workdays.isEmpty else { return target }
+    return target * workdays.filter { $0 <= now }.count / workdays.count
+  }
 }
 
 public struct Goals: Codable, Sendable, Equatable {
@@ -123,11 +134,24 @@ public enum ActivityFilter: Hashable, Sendable {
 }
 
 public enum Activity {
+  public static let historyDays = 90
+  public static let pageDays = 7
+  public static let pageCount = (historyDays + pageDays - 1) / pageDays
+
   public static func historyInterval(endingAt now: Date, calendar: Calendar = .current)
     -> DateInterval
   {
-    let start = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -89, to: now)!)
+    let start = calendar.startOfDay(
+      for: calendar.date(byAdding: .day, value: 1 - historyDays, to: now)!)
     return DateInterval(start: start, end: now)
+  }
+
+  public static func page(_ index: Int, endingAt now: Date, calendar: Calendar = .current)
+    -> DateInterval
+  {
+    let end = calendar.date(
+      byAdding: .day, value: 1 - index * pageDays, to: calendar.startOfDay(for: now))!
+    return DateInterval(start: calendar.date(byAdding: .day, value: -pageDays, to: end)!, end: end)
   }
 
   public static func mergedPullRequests(from sources: [ScopedActivity]) -> [MergedPullRequest] {

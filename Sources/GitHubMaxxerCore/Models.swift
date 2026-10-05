@@ -66,64 +66,16 @@ public struct MergedPullRequest: Codable, Sendable, Hashable, Identifiable {
   }
 }
 
-public struct ContributionCalendar: Codable, Sendable {
-  public let totalContributions: Int
-  public let weeks: [ContributionWeek]
-
-  public init(totalContributions: Int, weeks: [ContributionWeek]) {
-    self.totalContributions = totalContributions
-    self.weeks = weeks
-  }
-}
-
-public struct ContributionWeek: Codable, Sendable {
-  public let firstDay: String
-  public let contributionDays: [ContributionDay]
-
-  public init(firstDay: String, contributionDays: [ContributionDay]) {
-    self.firstDay = firstDay
-    self.contributionDays = contributionDays
-  }
-}
-
-public struct ContributionDay: Codable, Sendable, Identifiable {
-  public let date: String
-  public let weekday: Int
-  public let contributionCount: Int
-  public let contributionLevel: ContributionLevel
-  public var id: String { date }
-
-  public init(
-    date: String, weekday: Int, contributionCount: Int, contributionLevel: ContributionLevel
-  ) {
-    self.date = date
-    self.weekday = weekday
-    self.contributionCount = contributionCount
-    self.contributionLevel = contributionLevel
-  }
-}
-
-public enum ContributionLevel: String, Codable, Sendable, CaseIterable {
-  case none = "NONE"
-  case first = "FIRST_QUARTILE"
-  case second = "SECOND_QUARTILE"
-  case third = "THIRD_QUARTILE"
-  case fourth = "FOURTH_QUARTILE"
-}
-
 public struct GitHubSnapshot: Codable, Sendable {
   public let repositories: [Repository]
   public let pullRequests: [MergedPullRequest]
-  public let contributions: ContributionCalendar
   public let fetchedAt: Date
 
   public init(
-    repositories: [Repository], pullRequests: [MergedPullRequest],
-    contributions: ContributionCalendar, fetchedAt: Date
+    repositories: [Repository], pullRequests: [MergedPullRequest], fetchedAt: Date
   ) {
     self.repositories = repositories
     self.pullRequests = pullRequests
-    self.contributions = contributions
     self.fetchedAt = fetchedAt
   }
 }

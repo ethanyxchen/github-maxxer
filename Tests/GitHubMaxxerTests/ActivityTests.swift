@@ -131,6 +131,27 @@ struct ActivityTests {
     #expect(!interval.contains(now.addingTimeInterval(1)))
   }
 
+  @Test func paceCountsElapsedWorkdays() {
+    let friday = date("2026-10-02T12:00:00Z")
+    let wednesday = date("2026-09-30T12:00:00Z")
+    #expect(GoalPeriod.month.pace(target: 60, now: friday, calendar: calendar) == 5)
+    #expect(GoalPeriod.week.pace(target: 15, now: friday, calendar: calendar) == 15)
+    #expect(GoalPeriod.week.pace(target: 15, now: wednesday, calendar: calendar) == 9)
+    #expect(GoalPeriod.day.pace(target: 3, now: friday, calendar: calendar) == 3)
+  }
+
+  @Test func pagesStepBackSevenLocalDaysAndCoverHistory() {
+    let now = date("2026-10-02T12:00:00Z")
+    let latest = Activity.page(0, endingAt: now, calendar: calendar)
+    #expect(latest.start == date("2026-09-25T23:00:00Z"))
+    #expect(latest.end == date("2026-10-02T23:00:00Z"))
+    #expect(latest.contains(now))
+    let previous = Activity.page(1, endingAt: now, calendar: calendar)
+    #expect(previous.end == latest.start)
+    let oldest = Activity.page(Activity.pageCount - 1, endingAt: now, calendar: calendar)
+    #expect(oldest.start <= Activity.historyInterval(endingAt: now, calendar: calendar).start)
+  }
+
   @Test func progressCapsAtOneAndRetainsExcessCount() {
     #expect(GoalProgress(count: 7, target: 5).fraction == 1)
     #expect(GoalProgress(count: 7, target: 5).remaining == 0)

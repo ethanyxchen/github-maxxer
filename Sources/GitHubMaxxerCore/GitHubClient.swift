@@ -18,18 +18,16 @@ public struct GitHubClient: Sendable {
 
   public func snapshot(login: String, now: Date = .now) async throws -> GitHubSnapshot {
     async let repositories = repositories()
-    async let contributions = contributions()
     let start = Activity.historyInterval(endingAt: now).start
     async let pulls = mergedPullRequests(login: login, from: start, to: now.addingTimeInterval(1))
-    let (accessible, merged, calendar) = try await (repositories, pulls, contributions)
+    let (accessible, merged) = try await (repositories, pulls)
     var seen = Set<String>()
     let visibleRepositories = (accessible + merged.map(\.repository)).filter {
       seen.insert($0.id).inserted
     }
     .sorted { $0.nameWithOwner.localizedStandardCompare($1.nameWithOwner) == .orderedAscending }
     return GitHubSnapshot(
-      repositories: visibleRepositories, pullRequests: merged, contributions: calendar,
-      fetchedAt: now)
+      repositories: visibleRepositories, pullRequests: merged, fetchedAt: now)
   }
 
   private func repositories() async throws -> [Repository] {
@@ -53,28 +51,6 @@ public struct GitHubClient: Sendable {
       cursor = try response.viewer.repositories.pageInfo.nextCursor(previous: cursor)
     } while cursor != nil
     return result
-  }
-
-  private func contributions() async throws -> ContributionCalendar {
-    let response: ContributionsResponse = try await query(
-      """
-      query {
-        viewer {
-          contributionsCollection {
-            contributionCalendar {
-              totalContributions
-              weeks {
-                firstDay
-                contributionDays { date weekday contributionCount contributionLevel }
-              }
-            }
-          }
-        }
-      }
-      """,
-      variables: EmptyVariables()
-    )
-    return response.viewer.contributionsCollection.contributionCalendar
   }
 
   private func mergedPullRequests(login: String, from start: Date, to end: Date) async throws
@@ -211,13 +187,6 @@ private struct ProfileResponse: Decodable, Sendable { let viewer: GitHubProfile 
 private struct RepositoriesResponse: Decodable, Sendable {
   let viewer: Viewer
   struct Viewer: Decodable, Sendable { let repositories: Page<Repository> }
-}
-private struct ContributionsResponse: Decodable, Sendable {
-  let viewer: Viewer
-  struct Viewer: Decodable, Sendable {
-    let contributionsCollection: Collection
-    struct Collection: Decodable, Sendable { let contributionCalendar: ContributionCalendar }
-  }
 }
 private struct SearchResponse: Decodable, Sendable {
   let search: Search

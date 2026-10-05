@@ -47,7 +47,6 @@ struct GitHubClientTests {
       let body = try requestBody(request)
       let query = body["query"] as! String
       let after = (body["variables"] as? [String: Any])?["after"] as? String
-      if query.contains("contributionsCollection") { return calendarResponse }
       if query.contains("repositories(first") {
         #expect(query.contains("ownerKind: owner { __typename }"))
         let id = after == nil ? "r1" : "r2"
@@ -67,7 +66,6 @@ struct GitHubClientTests {
     #expect(snapshot.pullRequests.map(\.id) == ["p1", "p2"])
     #expect(snapshot.repositories.allSatisfy { $0.ownerKind == .organization })
     #expect(snapshot.pullRequests.allSatisfy { $0.repository.ownerKind == .organization })
-    #expect(snapshot.contributions.totalContributions == 12)
   }
 
   @Test func partitionsSearchAboveGitHubResultLimit() async throws {
@@ -75,7 +73,6 @@ struct GitHubClientTests {
     let client = client { request in
       let body = try requestBody(request)
       let query = body["query"] as! String
-      if query.contains("contributionsCollection") { return calendarResponse }
       if query.contains("repositories(first") { return emptyRepositories }
       let search = (body["variables"] as! [String: Any])["query"] as! String
       let index = searches.append(search)
@@ -96,7 +93,6 @@ struct GitHubClientTests {
   @Test func rejectsMissingPaginationCursor() async {
     let client = client { request in
       let query = try requestBody(request)["query"] as! String
-      if query.contains("contributionsCollection") { return calendarResponse }
       if query.contains("repositories(first") {
         return StubResponse(
           body:
@@ -112,10 +108,6 @@ struct GitHubClientTests {
 }
 
 private let fixedNow = ISO8601DateFormatter().date(from: "2026-09-30T12:00:00Z")!
-private let calendarResponse = StubResponse(
-  body:
-    "{\"data\":{\"viewer\":{\"contributionsCollection\":{\"contributionCalendar\":{\"totalContributions\":12,\"weeks\":[]}}}}}"
-)
 private let emptyRepositories = StubResponse(
   body:
     "{\"data\":{\"viewer\":{\"repositories\":{\"nodes\":[],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}}"

@@ -35,7 +35,7 @@ struct SettingsView: View {
           .padding(.vertical, 4)
         }
       } header: {
-        Text("Merged PR targets")
+        SectionHeading("Merged PR targets")
       } footer: {
         Text(
           "Weekly and monthly targets follow your daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
@@ -78,17 +78,18 @@ struct SettingsView: View {
         }
         .disabled(model.isPreview)
       } header: {
-        Text("GitHub connections")
+        SectionHeading("GitHub connections")
       } footer: {
         Text(
           "Connect personal and work accounts. Signing in to the same account again updates its credential and keeps your repository selections. Credentials are stored in macOS Keychain. Activity is saved locally so it stays available offline."
         )
         .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
       }
-      Section("Updates") {
+      Section {
         LabeledContent("Refresh", value: "Every minute while the app is running")
         LabeledContent("History", value: "Merged PRs from the last 90 days")
-        LabeledContent("Contribution calendar", value: "Last year, directly from GitHub")
+      } header: {
+        SectionHeading("Updates")
       }
     }
     .formStyle(.grouped)
@@ -122,6 +123,16 @@ struct SettingsView: View {
 
   private func showConnection(_ existing: AccountConnection?) {
     if let connect { connect(existing) } else { draft = ConnectionDraft(existing: existing) }
+  }
+}
+
+private struct SectionHeading: View {
+  let title: String
+
+  init(_ title: String) { self.title = title }
+
+  var body: some View {
+    Text(title).padding(.leading, -10).frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 

@@ -1,21 +1,23 @@
 import GitHubMaxxerCore
 import SwiftUI
 
-private enum Destination: String, CaseIterable, Identifiable {
-  case overview, pullRequests, repositories, settings
-  var id: String { rawValue }
+private enum Destination: Hashable {
+  case activity(ActivityFilter)
+  case repositories, settings
+
   var title: String {
     switch self {
-    case .overview: "Overview"
-    case .pullRequests: "Pull Requests"
+    case .activity(let filter): filter.title
     case .repositories: "Repositories"
     case .settings: "Targets & Accounts"
     }
   }
+
   var symbol: String {
     switch self {
-    case .overview: "chart.bar.xaxis"
-    case .pullRequests: "arrow.triangle.pull"
+    case .activity(.all): "square.stack"
+    case .activity(.personal): "person"
+    case .activity(.organization): "building.2"
     case .repositories: "folder"
     case .settings: "slider.horizontal.3"
     }
@@ -30,39 +32,33 @@ struct ConnectionDraft: Identifiable {
 struct RootView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.scenePhase) private var scenePhase
-  @State private var selection: Destination? = .overview
-  @State private var activityFilter: ActivityFilter = .all
+  @State private var selection: Destination = .activity(.all)
   @State private var connectionDraft: ConnectionDraft?
+  @State private var renaming: String?
+  @State private var newName = ""
 
   var body: some View {
     NavigationSplitView {
-      List(selection: $selection) {
-        Section("Activity") {
-          navigationRow(.overview)
-          navigationRow(.pullRequests)
+      VStack(alignment: .leading, spacing: 22) {
+        section("Activity") {
+          row(.activity(.all))
+          row(.activity(.personal))
+          ForEach(model.sidebarOrganizations, id: \.self) { owner in
+            row(.activity(.organization(owner))).contextMenu { organizationMenu(owner) }
+          }
         }
-        Section("Manage") {
-          navigationRow(.repositories)
-          navigationRow(.settings)
+        section("Manage") {
+          row(.repositories)
+          row(.settings)
         }
+        Spacer(minLength: 0)
       }
-      .listStyle(.sidebar)
+      .padding(.horizontal, 10).padding(.vertical, 12)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .background(Palette.sidebar)
       .background(SidebarResizeBehavior())
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
-      .safeAreaInset(edge: .bottom) {
-        if model.connections.isEmpty {
-          Button {
-            connectionDraft = ConnectionDraft()
-          } label: {
-            Label("Connect GitHub", systemImage: "plus")
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .padding(.vertical, 6)
-          }
-          .buttonStyle(.plain)
-          .padding(16)
-          .disabled(model.isPreview)
-        }
-      }
+      .safeAreaInset(edge: .bottom, spacing: 0) { sidebarFooter }
     } detail: {
       VStack(spacing: 0) {
         if model.isPreview {
@@ -79,26 +75,16 @@ struct RootView: View {
         }
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
-      .navigationTitle((selection ?? .overview).title)
-      .toolbarBackground(.hidden, for: .windowToolbar)
+      .navigationTitle(title(for: selection))
+      .toolbar(removing: .title)
       .toolbar {
-        if selection == .overview || selection == .pullRequests {
-          ToolbarItem {
-            Picker("Activity", selection: $activityFilter) {
-              Text("All activity").tag(ActivityFilter.all)
-              Text("Personal").tag(ActivityFilter.personal)
-              ForEach(model.organizations, id: \.self) { owner in
-                Text(owner).tag(ActivityFilter.organization(owner))
-              }
-            }
-            .frame(width: 180)
-            .help("Show PR activity by repository owner")
+        ToolbarSpacer(.flexible)
+        if model.isRefreshing {
+          ToolbarItem(placement: .primaryAction) {
+            ProgressView().controlSize(.small).help("Refreshing GitHub activity")
           }
         }
-        if model.isRefreshing {
-          ToolbarItem { ProgressView().controlSize(.small).help("Refreshing GitHub activity") }
-        }
-        ToolbarItem {
+        ToolbarItem(placement: .primaryAction) {
           Button {
             Task { await model.refresh(authorizeKeychain: true) }
           } label: {
@@ -111,9 +97,6 @@ struct RootView: View {
           .help("Refresh GitHub activity (⌘R)")
         }
       }
-      .safeAreaInset(edge: .bottom, spacing: 0) {
-        statusBar
-      }
     }
     .navigationSplitViewStyle(.balanced)
     .sheet(item: $connectionDraft) { draft in
@@ -123,55 +106,176 @@ struct RootView: View {
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { Task { await model.refresh() } }
     }
-    .onChange(of: model.organizations) { _, organizations in
-      if case .organization(let owner) = activityFilter, !organizations.contains(owner) {
-        activityFilter = .all
+    .alert(
+      "Rename \(renaming ?? "")",
+      isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
+    ) {
+      TextField("Name", text: $newName)
+      Button("Rename") {
+        if let renaming { model.renameOrganization(renaming, to: newName) }
+      }
+      .keyboardShortcut(.defaultAction)
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("The new name only appears in Hammertime.")
+    }
+    .onChange(of: model.sidebarOrganizations) { _, organizations in
+      if case .activity(.organization(let owner)) = selection, !organizations.contains(owner) {
+        selection = .activity(.all)
       }
     }
     .onAppear { model.startRefreshing() }
     .frame(minWidth: 920, minHeight: 680)
   }
 
-  private func navigationRow(_ destination: Destination) -> some View {
-    Label(destination.title, systemImage: destination.symbol).tag(destination)
+  private func section(_ title: String, @ViewBuilder rows: () -> some View) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Eyebrow(title).padding(.horizontal, 10).padding(.bottom, 6)
+      rows()
+    }
+  }
+
+  private func row(_ destination: Destination) -> some View {
+    SidebarRow(
+      destination: destination, title: title(for: destination),
+      isPinned: isPinned(destination), isSelected: selection == destination
+    ) {
+      selection = destination
+    }
+  }
+
+  private func title(for destination: Destination) -> String {
+    guard case .activity(.organization(let owner)) = destination else { return destination.title }
+    return model.displayName(for: owner)
+  }
+
+  private func isPinned(_ destination: Destination) -> Bool {
+    guard case .activity(.organization(let owner)) = destination else { return false }
+    return model.isPinned(owner)
+  }
+
+  @ViewBuilder
+  private func organizationMenu(_ owner: String) -> some View {
+    Button(model.isPinned(owner) ? "Unpin" : "Pin to Top") {
+      model.setPinned(!model.isPinned(owner), organization: owner)
+    }
+    Button("Rename…") {
+      newName = model.displayName(for: owner)
+      renaming = owner
+    }
+    if model.displayName(for: owner) != owner {
+      Button("Reset Name") { model.renameOrganization(owner, to: "") }
+    }
+    Divider()
+    Button(role: .destructive) {
+      model.setHidden(true, organization: owner)
+    } label: {
+      Text("Remove from Sidebar").foregroundStyle(.red)
+    }
+  }
+
+  @ViewBuilder
+  private var sidebarFooter: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Rule()
+      if model.connections.isEmpty {
+        Button {
+          connectionDraft = ConnectionDraft()
+        } label: {
+          Label("Connect GitHub", systemImage: "plus")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(20)
+        .disabled(model.isPreview)
+      } else {
+        VStack(alignment: .leading, spacing: 4) {
+          HStack(spacing: 8) {
+            Lamp(isOn: model.errors.isEmpty && model.lastUpdated != nil)
+            Text(
+              model.connections.count == 1
+                ? model.connections[0].label : "\(model.connections.count) accounts"
+            )
+            .fontWeight(.medium).lineLimit(1)
+          }
+          Group {
+            if !model.errors.isEmpty {
+              Text("Needs attention")
+            } else if let date = model.lastUpdated {
+              Text("Updated \(date, style: .relative) ago")
+            } else {
+              Text("Waiting for first update")
+            }
+            Text("\(model.trackedRepositoryCount) repositories")
+          }
+          .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
+          .padding(.leading, 15)
+        }
+        .padding(.horizontal, 20).padding(.vertical, 14)
+        .accessibilityElement(children: .combine)
+      }
+    }
+    .background(Palette.sidebar)
   }
 
   @ViewBuilder
   private var content: some View {
-    switch selection ?? .overview {
-    case .overview:
+    switch selection {
+    case .activity(let filter):
       if model.connections.isEmpty {
         WelcomeView { connectionDraft = ConnectionDraft() }
       } else {
-        OverviewView(filter: $activityFilter) { selection = .pullRequests }
+        ActivityView(filter: filter, title: title(for: selection)).id(filter)
       }
-    case .pullRequests: PullRequestsView(filter: activityFilter)
-    case .repositories: RepositoriesView()
+    case .repositories:
+      VStack(spacing: 0) {
+        PageTitle(title(for: selection)).padding([.horizontal, .top], 20)
+        RepositoriesView()
+      }
     case .settings:
-      SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }
+      VStack(spacing: 0) {
+        PageTitle(title(for: selection)).padding([.horizontal, .top], 20)
+        SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }
+      }
     }
   }
+}
 
-  private var statusBar: some View {
-    HStack(spacing: 6) {
-      if model.connections.isEmpty {
-        Text("No GitHub account connected")
-      } else {
-        Image(systemName: model.errors.isEmpty ? "checkmark.circle" : "exclamationmark.circle")
-          .foregroundStyle(model.errors.isEmpty ? Color.secondary : .orange)
-        if let date = model.lastUpdated {
-          Text("Updated \(date, style: .relative) ago")
-        } else {
-          Text("Waiting for first update")
+private struct SidebarRow: View {
+  let destination: Destination
+  let title: String
+  let isPinned: Bool
+  let isSelected: Bool
+  let select: () -> Void
+  @State private var isHovering = false
+
+  var body: some View {
+    Button(action: select) {
+      HStack(spacing: 10) {
+        Image(systemName: destination.symbol)
+          .frame(width: 18)
+          .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
+        Text(title).lineLimit(1)
+        Spacer(minLength: 0)
+        if isPinned {
+          Image(systemName: "pin.fill").font(.system(size: 9))
+            .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
+            .accessibilityLabel("Pinned")
         }
-        Spacer()
-        Text("\(model.trackedRepositoryCount) repositories · Refreshes every minute")
       }
+      .foregroundStyle(isSelected ? Palette.panel : Palette.ink)
+      .fontWeight(isSelected ? .semibold : .regular)
+      .padding(.horizontal, 10).frame(height: 30)
+      .background(
+        isSelected ? Palette.ink : isHovering ? Palette.ink.opacity(0.06) : .clear,
+        in: RoundedRectangle(cornerRadius: 3)
+      )
+      .contentShape(Rectangle())
     }
-    .font(.caption).foregroundStyle(.secondary)
-    .padding(.horizontal, 20).padding(.vertical, 9)
-    .background(.bar)
-    .accessibilityElement(children: .combine)
+    .buttonStyle(.plain)
+    .onHover { isHovering = $0 }
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 }
 
@@ -182,7 +286,7 @@ private struct WelcomeView: View {
     VStack(spacing: 22) {
       Image(systemName: "arrow.triangle.pull")
         .font(.system(size: 46, weight: .light))
-        .foregroundStyle(.green)
+        .foregroundStyle(Palette.reached)
       VStack(spacing: 9) {
         Text("Keep track of what you merge")
           .font(.system(size: 26, weight: .semibold))
