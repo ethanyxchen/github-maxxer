@@ -168,8 +168,10 @@ struct RootView: View {
       Button("Reset Name") { model.renameOrganization(owner, to: "") }
     }
     Divider()
-    Button("Remove from Sidebar", role: .destructive) {
+    Button(role: .destructive) {
       model.setHidden(true, organization: owner)
+    } label: {
+      Text("Remove from Sidebar").foregroundStyle(.red)
     }
   }
 
