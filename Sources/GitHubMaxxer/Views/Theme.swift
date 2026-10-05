@@ -42,6 +42,17 @@ struct Eyebrow: View {
   }
 }
 
+struct PageTitle: View {
+  let title: String
+
+  init(_ title: String) { self.title = title }
+
+  var body: some View {
+    Text(title).font(.system(size: 22, weight: .bold)).foregroundStyle(Palette.ink)
+      .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
 struct Rule: View {
   var vertical = false
 

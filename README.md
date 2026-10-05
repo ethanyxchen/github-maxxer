@@ -6,7 +6,7 @@ Set daily, weekly, and monthly targets. Connect multiple GitHub accounts, choose
 
 ## Run locally
 
-Requires macOS 14 or newer and Xcode 26 or newer with Swift 6.2.
+Requires macOS 26 or newer and Xcode 26 or newer with Swift 6.2.
 
 ```sh
 ./scripts/build-app.sh

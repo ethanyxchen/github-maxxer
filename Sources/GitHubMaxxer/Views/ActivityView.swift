@@ -28,7 +28,8 @@ struct ActivityView: View {
     ScrollViewReader { proxy in
       ScrollView {
         VStack(spacing: 0) {
-          progress.padding(.vertical, 32)
+          PageTitle(filter.title).padding(.top, 28)
+          progress.padding(.top, 24).padding(.bottom, 32)
           Rule()
           if search.isEmpty { pager.padding(.top, 20).id("log") }
           log.padding(.vertical, 20)
@@ -42,7 +43,7 @@ struct ActivityView: View {
     }
     .background(Palette.panel)
     .foregroundStyle(Palette.ink)
-    .searchable(text: $search, prompt: "Search merges")
+    .searchable(text: $search, placement: .toolbar, prompt: "Search merges")
   }
 
   private var progress: some View {

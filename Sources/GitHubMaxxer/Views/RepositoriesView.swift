@@ -115,7 +115,7 @@ struct RepositoriesView: View {
             "Connect GitHub to choose which repositories count toward your targets."))
       }
     }
-    .searchable(text: $search, prompt: "Find a repository or owner")
+    .searchable(text: $search, placement: .toolbar, prompt: "Find a repository or owner")
   }
 
   private func ownerBinding(_ owner: String, account: AccountConnection) -> Binding<Bool> {

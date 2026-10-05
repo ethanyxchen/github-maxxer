@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
   name: "Hammertime",
-  platforms: [.macOS(.v14)],
+  platforms: [.macOS(.v26)],
   products: [
     .executable(name: "Hammertime", targets: ["GitHubMaxxer"])
   ],

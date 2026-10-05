@@ -75,11 +75,15 @@ struct RootView: View {
       }
       .navigationTitle(selection.title)
       .toolbarBackground(.hidden, for: .windowToolbar)
+      .toolbar(removing: .title)
       .toolbar {
+        ToolbarSpacer(.flexible)
         if model.isRefreshing {
-          ToolbarItem { ProgressView().controlSize(.small).help("Refreshing GitHub activity") }
+          ToolbarItem(placement: .primaryAction) {
+            ProgressView().controlSize(.small).help("Refreshing GitHub activity")
+          }
         }
-        ToolbarItem {
+        ToolbarItem(placement: .primaryAction) {
           Button {
             Task { await model.refresh(authorizeKeychain: true) }
           } label: {
@@ -177,9 +181,16 @@ struct RootView: View {
       } else {
         ActivityView(filter: filter).id(filter)
       }
-    case .repositories: RepositoriesView()
+    case .repositories:
+      VStack(spacing: 0) {
+        PageTitle(selection.title).padding([.horizontal, .top], 20)
+        RepositoriesView()
+      }
     case .settings:
-      SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }
+      VStack(spacing: 0) {
+        PageTitle(selection.title).padding([.horizontal, .top], 20)
+        SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }
+      }
     }
   }
 }
