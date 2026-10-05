@@ -34,45 +34,32 @@ struct ConnectionDraft: Identifiable {
 struct RootView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.scenePhase) private var scenePhase
-  @State private var selection: Destination? = .activity(.all)
+  @State private var selection: Destination = .activity(.all)
   @State private var connectionDraft: ConnectionDraft?
 
   var body: some View {
     NavigationSplitView {
-      List(selection: $selection) {
-        Section("Activity") {
-          navigationRow(.activity(.all))
-          navigationRow(.activity(.personal))
-          ForEach(model.organizations, id: \.self) { owner in
-            navigationRow(.activity(.organization(owner)))
+      ScrollView {
+        VStack(alignment: .leading, spacing: 22) {
+          section("Activity") {
+            row(.activity(.all))
+            row(.activity(.personal))
+            ForEach(model.organizations, id: \.self) { owner in
+              row(.activity(.organization(owner)))
+            }
+          }
+          section("Insights") { row(.history) }
+          section("Manage") {
+            row(.repositories)
+            row(.settings)
           }
         }
-        Section("Insights") {
-          navigationRow(.history)
-        }
-        Section("Manage") {
-          navigationRow(.repositories)
-          navigationRow(.settings)
-        }
+        .padding(.horizontal, 10).padding(.vertical, 12)
       }
-      .listStyle(.sidebar)
-      .tint(Palette.over)
+      .background(Palette.sidebar)
       .background(SidebarResizeBehavior())
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
-      .safeAreaInset(edge: .bottom) {
-        if model.connections.isEmpty {
-          Button {
-            connectionDraft = ConnectionDraft()
-          } label: {
-            Label("Connect GitHub", systemImage: "plus")
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .padding(.vertical, 6)
-          }
-          .buttonStyle(.plain)
-          .padding(16)
-          .disabled(model.isPreview)
-        }
-      }
+      .safeAreaInset(edge: .bottom, spacing: 0) { sidebarFooter }
     } detail: {
       VStack(spacing: 0) {
         if model.isPreview {
@@ -89,8 +76,7 @@ struct RootView: View {
         }
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
-      .navigationTitle((selection ?? .activity(.all)).title)
-      .navigationSubtitle(subtitle)
+      .navigationTitle(selection.title)
       .toolbarBackground(.hidden, for: .windowToolbar)
       .toolbar {
         if model.isRefreshing {
@@ -127,25 +113,67 @@ struct RootView: View {
     .frame(minWidth: 920, minHeight: 680)
   }
 
-  private func navigationRow(_ destination: Destination) -> some View {
-    Label {
-      Text(destination.title)
-    } icon: {
-      Image(systemName: destination.symbol).foregroundStyle(Palette.secondary)
+  private func section(_ title: String, @ViewBuilder rows: () -> some View) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Eyebrow(title).padding(.horizontal, 10).padding(.bottom, 6)
+      rows()
     }
-    .tag(destination)
   }
 
-  private var subtitle: String {
-    guard !model.connections.isEmpty else { return "" }
-    guard let date = model.lastUpdated else { return "Waiting for first update" }
-    return
-      "Updated \(date.formatted(.relative(presentation: .named))) · \(model.trackedRepositoryCount) repositories"
+  private func row(_ destination: Destination) -> some View {
+    SidebarRow(destination: destination, isSelected: selection == destination) {
+      selection = destination
+    }
+  }
+
+  @ViewBuilder
+  private var sidebarFooter: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Rule()
+      if model.connections.isEmpty {
+        Button {
+          connectionDraft = ConnectionDraft()
+        } label: {
+          Label("Connect GitHub", systemImage: "plus")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(20)
+        .disabled(model.isPreview)
+      } else {
+        VStack(alignment: .leading, spacing: 4) {
+          HStack(spacing: 8) {
+            Lamp(isOn: model.errors.isEmpty && model.lastUpdated != nil)
+            Text(
+              model.connections.count == 1
+                ? model.connections[0].label : "\(model.connections.count) accounts"
+            )
+            .fontWeight(.medium).lineLimit(1)
+          }
+          Group {
+            if !model.errors.isEmpty {
+              Text("Needs attention")
+            } else if let date = model.lastUpdated {
+              Text("Updated \(date, style: .relative) ago")
+            } else {
+              Text("Waiting for first update")
+            }
+            Text("\(model.trackedRepositoryCount) repositories")
+          }
+          .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
+          .padding(.leading, 15)
+        }
+        .padding(.horizontal, 20).padding(.vertical, 14)
+        .accessibilityElement(children: .combine)
+      }
+    }
+    .background(Palette.sidebar)
   }
 
   @ViewBuilder
   private var content: some View {
-    switch selection ?? .activity(.all) {
+    switch selection {
     case .activity(let filter):
       if model.connections.isEmpty {
         WelcomeView { connectionDraft = ConnectionDraft() }
@@ -161,6 +189,36 @@ struct RootView: View {
     case .settings:
       SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }
     }
+  }
+}
+
+private struct SidebarRow: View {
+  let destination: Destination
+  let isSelected: Bool
+  let select: () -> Void
+  @State private var isHovering = false
+
+  var body: some View {
+    Button(action: select) {
+      HStack(spacing: 10) {
+        Image(systemName: destination.symbol)
+          .frame(width: 18)
+          .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
+        Text(destination.title).lineLimit(1)
+        Spacer(minLength: 0)
+      }
+      .foregroundStyle(isSelected ? Palette.panel : Palette.ink)
+      .fontWeight(isSelected ? .semibold : .regular)
+      .padding(.horizontal, 10).frame(height: 30)
+      .background(
+        isSelected ? Palette.ink : isHovering ? Palette.ink.opacity(0.06) : .clear,
+        in: RoundedRectangle(cornerRadius: 3)
+      )
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .onHover { isHovering = $0 }
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 }
 

@@ -4,6 +4,7 @@ import SwiftUI
 enum Palette {
   static let background = dynamic(light: 0xE2E3E0, dark: 0x111311)
   static let panel = dynamic(light: 0xF1F2EF, dark: 0x1A1C1A)
+  static let sidebar = dynamic(light: 0xDCDED9, dark: 0x141614)
   static let ink = dynamic(light: 0x141714, dark: 0xEBEEE9)
   static let secondary = dynamic(light: 0x5C615B, dark: 0x8C928A)
   static let rule = dynamic(light: 0xC1C5BE, dark: 0x2E322E)
