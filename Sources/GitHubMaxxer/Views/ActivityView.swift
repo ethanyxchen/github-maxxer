@@ -112,7 +112,7 @@ struct ActivityView: View {
         ContentUnavailableView.search(text: search)
       }
     } else {
-      LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
+      LazyVStack(alignment: .leading, spacing: 0) {
         ForEach(days, id: \.day) { entry in
           Section {
             ForEach(entry.pulls) { pull in
@@ -166,7 +166,6 @@ struct ActivityView: View {
         .foregroundStyle(count >= target ? Palette.reached : Palette.secondary)
     }
     .padding(.top, 18).padding(.bottom, 8)
-    .background(Palette.panel)
     .overlay(alignment: .bottom) { Rule() }
   }
 

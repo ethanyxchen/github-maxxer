@@ -76,7 +76,6 @@ struct RootView: View {
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
       .navigationTitle(title(for: selection))
-      .toolbarBackground(.hidden, for: .windowToolbar)
       .toolbar(removing: .title)
       .toolbar {
         ToolbarSpacer(.flexible)
