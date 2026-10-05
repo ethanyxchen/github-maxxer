@@ -12,9 +12,27 @@ struct AccountConnection: Codable, Identifiable {
   var profileURL: URL { URL(string: "https://github.com/\(profile.login)")! }
 }
 
+struct OrganizationPreferences: Codable {
+  var pinned: [String] = []
+  var hidden: Set<String> = []
+  var names: [String: String] = [:]
+}
+
 private struct SavedState: Codable {
   var goals = Goals()
   var connections: [AccountConnection] = []
+  var organizations = OrganizationPreferences()
+}
+
+extension SavedState {
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    goals = try container.decode(Goals.self, forKey: .goals)
+    connections = try container.decode([AccountConnection].self, forKey: .connections)
+    organizations =
+      try container.decodeIfPresent(OrganizationPreferences.self, forKey: .organizations)
+      ?? OrganizationPreferences()
+  }
 }
 
 @MainActor
@@ -22,6 +40,7 @@ private struct SavedState: Codable {
 final class AppModel {
   private(set) var connections: [AccountConnection] = []
   private(set) var goals = Goals()
+  private(set) var organizationPreferences = OrganizationPreferences()
   private(set) var isRefreshing = false
   private(set) var isConnecting = false
   private(set) var connectionErrors: [UUID: String] = [:]
@@ -54,6 +73,7 @@ final class AppModel {
         let state = try JSONDecoder().decode(SavedState.self, from: Data(contentsOf: self.stateURL))
         goals = state.goals
         connections = state.connections
+        organizationPreferences = state.organizations
       } catch {
         storageError = "Saved activity could not be loaded. \(error.localizedDescription)"
       }
@@ -76,6 +96,45 @@ final class AppModel {
     }
     return Array(Set(repositories.filter { $0.ownerKind == .organization }.map(\.owner)))
       .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+  }
+
+  var sidebarOrganizations: [String] {
+    let visible = organizations.filter { !organizationPreferences.hidden.contains($0) }
+    return organizationPreferences.pinned.filter(visible.contains)
+      + visible.filter { !organizationPreferences.pinned.contains($0) }
+  }
+
+  func displayName(for organization: String) -> String {
+    organizationPreferences.names[organization] ?? organization
+  }
+
+  func isPinned(_ organization: String) -> Bool {
+    organizationPreferences.pinned.contains(organization)
+  }
+
+  func isHidden(_ organization: String) -> Bool {
+    organizationPreferences.hidden.contains(organization)
+  }
+
+  func setPinned(_ pinned: Bool, organization: String) {
+    organizationPreferences.pinned.removeAll { $0 == organization }
+    if pinned { organizationPreferences.pinned.append(organization) }
+    persist()
+  }
+
+  func setHidden(_ hidden: Bool, organization: String) {
+    if hidden {
+      organizationPreferences.hidden.insert(organization)
+    } else {
+      organizationPreferences.hidden.remove(organization)
+    }
+    persist()
+  }
+
+  func renameOrganization(_ organization: String, to name: String) {
+    let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    organizationPreferences.names[organization] = name.isEmpty ? nil : name
+    persist()
   }
 
   func pullRequests(for filter: ActivityFilter) -> [MergedPullRequest] {
@@ -216,7 +275,8 @@ final class AppModel {
       let directory = stateURL.deletingLastPathComponent()
       try FileManager.default.createDirectory(
         at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-      let state = SavedState(goals: goals, connections: connections)
+      let state = SavedState(
+        goals: goals, connections: connections, organizations: organizationPreferences)
       try JSONEncoder().encode(state).write(to: stateURL, options: .atomic)
       try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: stateURL.path)
       storageError = nil

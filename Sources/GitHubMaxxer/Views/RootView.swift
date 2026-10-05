@@ -34,6 +34,8 @@ struct RootView: View {
   @Environment(\.scenePhase) private var scenePhase
   @State private var selection: Destination = .activity(.all)
   @State private var connectionDraft: ConnectionDraft?
+  @State private var renaming: String?
+  @State private var newName = ""
 
   var body: some View {
     NavigationSplitView {
@@ -41,8 +43,8 @@ struct RootView: View {
         section("Activity") {
           row(.activity(.all))
           row(.activity(.personal))
-          ForEach(model.organizations, id: \.self) { owner in
-            row(.activity(.organization(owner)))
+          ForEach(model.sidebarOrganizations, id: \.self) { owner in
+            row(.activity(.organization(owner))).contextMenu { organizationMenu(owner) }
           }
         }
         section("Manage") {
@@ -73,7 +75,7 @@ struct RootView: View {
         }
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
-      .navigationTitle(selection.title)
+      .navigationTitle(title(for: selection))
       .toolbarBackground(.hidden, for: .windowToolbar)
       .toolbar(removing: .title)
       .toolbar {
@@ -105,7 +107,20 @@ struct RootView: View {
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { Task { await model.refresh() } }
     }
-    .onChange(of: model.organizations) { _, organizations in
+    .alert(
+      "Rename \(renaming ?? "")",
+      isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
+    ) {
+      TextField("Name", text: $newName)
+      Button("Rename") {
+        if let renaming { model.renameOrganization(renaming, to: newName) }
+      }
+      .keyboardShortcut(.defaultAction)
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("The new name only appears in Hammertime.")
+    }
+    .onChange(of: model.sidebarOrganizations) { _, organizations in
       if case .activity(.organization(let owner)) = selection, !organizations.contains(owner) {
         selection = .activity(.all)
       }
@@ -122,8 +137,39 @@ struct RootView: View {
   }
 
   private func row(_ destination: Destination) -> some View {
-    SidebarRow(destination: destination, isSelected: selection == destination) {
+    SidebarRow(
+      destination: destination, title: title(for: destination),
+      isPinned: isPinned(destination), isSelected: selection == destination
+    ) {
       selection = destination
+    }
+  }
+
+  private func title(for destination: Destination) -> String {
+    guard case .activity(.organization(let owner)) = destination else { return destination.title }
+    return model.displayName(for: owner)
+  }
+
+  private func isPinned(_ destination: Destination) -> Bool {
+    guard case .activity(.organization(let owner)) = destination else { return false }
+    return model.isPinned(owner)
+  }
+
+  @ViewBuilder
+  private func organizationMenu(_ owner: String) -> some View {
+    Button(model.isPinned(owner) ? "Unpin" : "Pin to Top") {
+      model.setPinned(!model.isPinned(owner), organization: owner)
+    }
+    Button("Rename…") {
+      newName = model.displayName(for: owner)
+      renaming = owner
+    }
+    if model.displayName(for: owner) != owner {
+      Button("Reset Name") { model.renameOrganization(owner, to: "") }
+    }
+    Divider()
+    Button("Remove from Sidebar", role: .destructive) {
+      model.setHidden(true, organization: owner)
     }
   }
 
@@ -179,16 +225,16 @@ struct RootView: View {
       if model.connections.isEmpty {
         WelcomeView { connectionDraft = ConnectionDraft() }
       } else {
-        ActivityView(filter: filter).id(filter)
+        ActivityView(filter: filter, title: title(for: selection)).id(filter)
       }
     case .repositories:
       VStack(spacing: 0) {
-        PageTitle(selection.title).padding([.horizontal, .top], 20)
+        PageTitle(title(for: selection)).padding([.horizontal, .top], 20)
         RepositoriesView()
       }
     case .settings:
       VStack(spacing: 0) {
-        PageTitle(selection.title).padding([.horizontal, .top], 20)
+        PageTitle(title(for: selection)).padding([.horizontal, .top], 20)
         SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }
       }
     }
@@ -197,6 +243,8 @@ struct RootView: View {
 
 private struct SidebarRow: View {
   let destination: Destination
+  let title: String
+  let isPinned: Bool
   let isSelected: Bool
   let select: () -> Void
   @State private var isHovering = false
@@ -207,8 +255,13 @@ private struct SidebarRow: View {
         Image(systemName: destination.symbol)
           .frame(width: 18)
           .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
-        Text(destination.title).lineLimit(1)
+        Text(title).lineLimit(1)
         Spacer(minLength: 0)
+        if isPinned {
+          Image(systemName: "pin.fill").font(.system(size: 9))
+            .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
+            .accessibilityLabel("Pinned")
+        }
       }
       .foregroundStyle(isSelected ? Palette.panel : Palette.ink)
       .fontWeight(isSelected ? .semibold : .regular)

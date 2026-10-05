@@ -4,6 +4,7 @@ import SwiftUI
 struct ActivityView: View {
   @Environment(AppModel.self) private var model
   let filter: ActivityFilter
+  let title: String
   @State private var search = ""
   @State private var page = 0
 
@@ -28,7 +29,7 @@ struct ActivityView: View {
     ScrollViewReader { proxy in
       ScrollView {
         VStack(spacing: 0) {
-          PageTitle(filter.title).padding(.top, 28)
+          PageTitle(title).padding(.top, 28)
           progress.padding(.top, 24).padding(.bottom, 32)
           Rule()
           if search.isEmpty { pager.padding(.top, 20).id("log") }

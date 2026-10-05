@@ -63,6 +63,17 @@ struct RepositoriesView: View {
               }
               .fixedSize()
               .disabled(account.scope.allRepositories)
+              Menu("Show in sidebar") {
+                ForEach(model.organizations, id: \.self) { owner in
+                  Toggle(
+                    model.displayName(for: owner),
+                    isOn: Binding(
+                      get: { !model.isHidden(owner) },
+                      set: { model.setHidden(!$0, organization: owner) }))
+                }
+              }
+              .fixedSize()
+              .disabled(model.organizations.isEmpty)
             }
             Text(
               "Owner selections include current and future repositories. Tracked repositories count toward your PR targets."

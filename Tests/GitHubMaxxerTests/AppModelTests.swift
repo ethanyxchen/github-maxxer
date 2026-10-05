@@ -68,6 +68,40 @@ struct AppModelTests {
         == GoalPeriod.month.count(in: work, now: model.now))
   }
 
+  @Test func sidebarOrganizationsKeepPinsHiddenOwnersAndLocalNames() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let repositories = ["acme/app", "beta/app"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
+    }
+    let connection = AccountConnection(
+      id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
+      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [], fetchedAt: .now))
+    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
+    #expect(model.sidebarOrganizations == ["acme", "beta"])
+
+    model.setPinned(true, organization: "beta")
+    model.renameOrganization("acme", to: "  Acme Inc  ")
+    #expect(model.sidebarOrganizations == ["beta", "acme"])
+    #expect(model.displayName(for: "acme") == "Acme Inc")
+    model.setHidden(true, organization: "beta")
+    #expect(model.sidebarOrganizations == ["acme"])
+
+    let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
+    #expect(reloaded.sidebarOrganizations == ["acme"])
+    #expect(reloaded.isPinned("beta"))
+    #expect(reloaded.displayName(for: "acme") == "Acme Inc")
+    reloaded.renameOrganization("acme", to: " ")
+    reloaded.setHidden(false, organization: "beta")
+    #expect(reloaded.displayName(for: "acme") == "acme")
+    #expect(reloaded.sidebarOrganizations == ["beta", "acme"])
+    #expect(reloaded.pullRequests(for: .organization("beta")).isEmpty)
+  }
+
   @Test func goalsSurviveRelaunchAndStayPositive() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
