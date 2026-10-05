@@ -32,9 +32,8 @@ struct ActivityView: View {
           PageTitle(title).padding(.top, 28)
           progress.padding(.top, 24).padding(.bottom, 32)
           Rule()
-          if search.isEmpty { pager.padding(.top, 20).id("log") }
-          log.padding(.vertical, 20)
-          if search.isEmpty && !days.isEmpty { pager.padding(.bottom, 28) }
+          log.padding(.vertical, 20).id("log")
+          if search.isEmpty { pager.padding(.bottom, 28) }
         }
         .padding(.horizontal, 40)
         .frame(maxWidth: 960)
