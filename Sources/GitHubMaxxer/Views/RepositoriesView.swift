@@ -20,6 +20,23 @@ struct RepositoriesView: View {
     Group {
       if let account {
         VStack(spacing: 0) {
+          HStack {
+            Text("Organisations from all connections").font(.headline)
+            Spacer()
+            Menu("Show in Sidebar") {
+              ForEach(model.organizations, id: \.self) { owner in
+                Toggle(
+                  model.displayName(for: owner),
+                  isOn: Binding(
+                    get: { !model.isHidden(owner) },
+                    set: { model.setHidden(!$0, organization: owner) }))
+              }
+            }
+            .fixedSize()
+            .disabled(model.organizations.isEmpty)
+          }
+          .padding(.horizontal, 20).padding(.vertical, 12)
+          Divider()
           VStack(alignment: .leading, spacing: 12) {
             HStack {
               if model.connections.count > 1 {
@@ -63,17 +80,6 @@ struct RepositoriesView: View {
               }
               .fixedSize()
               .disabled(account.scope.allRepositories)
-              Menu("Show in sidebar") {
-                ForEach(model.organizations, id: \.self) { owner in
-                  Toggle(
-                    model.displayName(for: owner),
-                    isOn: Binding(
-                      get: { !model.isHidden(owner) },
-                      set: { model.setHidden(!$0, organization: owner) }))
-                }
-              }
-              .fixedSize()
-              .disabled(model.organizations.isEmpty)
             }
             Text(
               "Only PRs you author count. Choosing an organisation or account under Count repositories from includes all of its repositories, now and in future."

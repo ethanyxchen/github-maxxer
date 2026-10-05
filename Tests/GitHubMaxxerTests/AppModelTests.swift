@@ -77,9 +77,13 @@ struct AppModelTests {
     let repositories = ["acme/app", "beta/app"].map {
       Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
     }
+    let merged = MergedPullRequest(
+      id: "beta-1", title: "Ship", number: 1,
+      url: URL(string: "https://github.com/beta/app/pull/1")!,
+      mergedAt: .now.addingTimeInterval(-1), repository: repositories[1])
     let connection = AccountConnection(
       id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
-      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [], fetchedAt: .now))
+      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [merged], fetchedAt: .now))
     try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(model.sidebarOrganizations == ["acme", "beta"])
@@ -94,12 +98,78 @@ struct AppModelTests {
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.sidebarOrganizations == ["acme"])
     #expect(reloaded.isPinned("beta"))
+    #expect(reloaded.pullRequests(for: .all) == [merged])
+    #expect(reloaded.progress(for: .day).count == 1)
     #expect(reloaded.displayName(for: "acme") == "Acme Inc")
     reloaded.renameOrganization("acme", to: " ")
     reloaded.setHidden(false, organization: "beta")
     #expect(reloaded.displayName(for: "acme") == "acme")
     #expect(reloaded.sidebarOrganizations == ["beta", "acme"])
-    #expect(reloaded.pullRequests(for: .organization("beta")).isEmpty)
+  }
+
+  @Test func organizationPreferencesIgnoreOwnerCase() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let repositories = ["acme/app", "beta/app", "Beta/tools"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
+    }
+    let connection = AccountConnection(
+      id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
+      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [], fetchedAt: .now))
+    let saved = OrganizationPreferences(
+      pinned: ["Beta"], hidden: ["ACME"], names: ["Beta": "Beta Labs"])
+    try JSONEncoder().encode(
+      FixtureState(goals: Goals(), connections: [connection], organizations: saved)
+    ).write(to: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
+
+    #expect(model.isPinned("beta"))
+    #expect(model.isHidden("acme"))
+    #expect(model.displayName(for: "beta") == "Beta Labs")
+    #expect(model.sidebarOrganizations == ["beta"])
+
+    model.setPinned(false, organization: "BETA")
+    model.setHidden(false, organization: "Acme")
+    model.renameOrganization("BeTa", to: "")
+    #expect(!model.isPinned("beta"))
+    #expect(model.displayName(for: "beta") == "beta")
+    #expect(model.sidebarOrganizations == ["acme", "beta"])
+  }
+
+  @Test func organizationPreferencesForgetOrganizationsThatDisappear() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let repository = Repository(
+      id: "acme/app", nameWithOwner: "acme/app", isPrivate: false, ownerKind: .organization)
+    let connection = AccountConnection(
+      id: UUID(), label: "Work", profile: sample.profile,
+      scope: RepositoryScope(allRepositories: false),
+      snapshot: GitHubSnapshot(repositories: [repository], pullRequests: [], fetchedAt: .now))
+    let saved = OrganizationPreferences(
+      pinned: ["acme", "gone"], hidden: ["gone"], names: ["acme": "Acme", "gone": "Gone"])
+    try JSONEncoder().encode(
+      FixtureState(goals: Goals(), connections: [connection], organizations: saved)
+    ).write(to: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
+
+    model.setDailyGoal(2)
+
+    let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
+    #expect(reloaded.organizationPreferences.pinned == ["acme"])
+    #expect(reloaded.organizationPreferences.hidden.isEmpty)
+    #expect(reloaded.organizationPreferences.names == ["acme": "Acme"])
+
+    try reloaded.remove(connection.id)
+
+    let empty = AppModel(stateURL: url, credentials: TestCredentials())
+    #expect(empty.organizationPreferences.pinned == ["acme"])
+    #expect(empty.organizationPreferences.names == ["acme": "Acme"])
   }
 
   @Test func goalsSurviveRelaunchAndStayPositive() throws {
@@ -213,6 +283,7 @@ private final class TestCredentials: CredentialStorage {
 private struct FixtureState: Encodable {
   let goals: Goals
   let connections: [AccountConnection]
+  var organizations: OrganizationPreferences?
 }
 
 private final class SignedInProtocol: URLProtocol, @unchecked Sendable {
