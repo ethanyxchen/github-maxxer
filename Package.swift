@@ -9,7 +9,8 @@ let package = Package(
   ],
   targets: [
     .target(name: "GitHubMaxxerCore"),
-    .executableTarget(name: "GitHubMaxxer", dependencies: ["GitHubMaxxerCore"]),
+    .executableTarget(
+      name: "GitHubMaxxer", dependencies: ["GitHubMaxxerCore"], resources: [.process("Resources")]),
     .testTarget(name: "GitHubMaxxerTests", dependencies: ["GitHubMaxxerCore", "GitHubMaxxer"]),
   ]
 )

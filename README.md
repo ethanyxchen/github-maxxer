@@ -103,3 +103,8 @@ swift run Hammertime --preview
 Use `--preview-dark` instead to inspect dark appearance without changing system settings.
 
 Regenerate the original app icon with `./scripts/update-icon.sh`.
+
+## Credits
+
+- ["Sledgehammer"](https://sketchfab.com/3d-models/sledgehammer-8194ce123fd64429b183c26df7fba17e) by Yaroslav Lazun, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- ["Studio Small 09"](https://polyhaven.com/a/studio_small_09) HDRI from Poly Haven, licensed under CC0.

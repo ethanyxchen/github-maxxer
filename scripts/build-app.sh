@@ -24,6 +24,7 @@ if [[ -n "${GITHUB_OAUTH_CLIENT_ID:-}" ]]; then
   plutil -replace GitHubOAuthClientID -string "$GITHUB_OAUTH_CLIENT_ID" "$app_bundle/Contents/Info.plist"
 fi
 cp Resources/AppIcon.icns "$app_bundle/Contents/Resources/AppIcon.icns"
+cp -R "$binary_directory/Hammertime_GitHubMaxxer.bundle" "$app_bundle/Contents/Resources/"
 plutil -lint "$app_bundle/Contents/Info.plist"
 codesign --force --sign "${CODESIGN_IDENTITY:-Apple Development}" "$app_bundle"
 codesign --verify --deep --strict "$app_bundle"

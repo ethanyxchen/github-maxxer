@@ -46,9 +46,9 @@ struct Sledgehammer: NSViewRepresentable {
 
 @MainActor
 final class SledgehammerRig {
-  private static let handleLength: Float = 5.2
-  private static let headLength: Float = 2.1
-  private static let glassDistance: Float = 7
+  private static let handleLength: Float = 8.79
+  private static let strikerDepth: Float = 0.96
+  private static let glassDistance: Float = 8
   private static let cameraDistance: Float = 12
   private static let fieldOfView: Float = 38
 
@@ -64,9 +64,9 @@ final class SledgehammerRig {
     let glass = Self.cameraDistance - Self.glassDistance
     let face = SIMD3<Float>(0, -Float(Slam.impactHeight - 0.5) * visibleHeight, glass)
     rig.simdOrientation = orientation
-    rig.simdPosition = face - orientation.act([0, Self.handleLength, -Self.headLength / 2])
+    rig.simdPosition = face - orientation.act([0, Self.handleLength, -Self.strikerDepth])
     rig.addChildNode(swinging)
-    for part in Self.hammer() { swinging.addChildNode(part) }
+    swinging.addChildNode(Self.scanned())
     scene.rootNode.addChildNode(rig)
 
     let camera = SCNNode()
@@ -99,122 +99,38 @@ final class SledgehammerRig {
     key.simdPosition = [0, 0, Self.cameraDistance]
     key.simdLook(at: [-3, -5, glass - 4])
     scene.rootNode.addChildNode(key)
-    scene.lightingEnvironment.contents = Self.studio()
-    scene.lightingEnvironment.intensity = 1.6
+    scene.lightingEnvironment.contents = Bundle.module.url(
+      forResource: "Studio", withExtension: "hdr")
+    scene.lightingEnvironment.intensity = 1.2
   }
 
   func pose(_ swing: Swing) {
     swinging.simdEulerAngles.x = Float(swing.angle * .pi / 180)
   }
 
-  private static func hammer() -> [SCNNode] {
-    let paint = material(
-      texture { x, y in 0.025 + 0.02 * noise(x * 7919 + y, 21) }, metalness: 0.15,
-      roughness: texture { x, y in 0.22 + 0.3 * noise(x * 6271 + y, 22) })
-    paint.clearCoat.contents = 0.6
-    paint.clearCoatRoughness.contents = 0.25
-    let face = material(
-      texture { x, y in
-        0.42 + 0.05 * noise(Int(hypot(Double(x - 128), Double(y - 128)) * 2), 23)
-          + 0.06 * noise(x * 977 + y, 26)
-      }, metalness: 1, roughness: texture { x, y in 0.3 + 0.15 * noise(x * 3301 + y, 24) })
-    let edge = material(NSColor(white: 0.62, alpha: 1), metalness: 1, roughness: 0.3)
-    let rubber = material(
-      texture { x, y in 0.035 + 0.02 * noise(x * 4409 + y, 25) }, metalness: 0, roughness: 0.82)
-    let fiberglass = material(NSColor(hex: 0xF2B10A), metalness: 0, roughness: 0.35)
-    fiberglass.clearCoat.contents = 1
-    fiberglass.clearCoatRoughness.contents = 0.06
-
-    let head = SCNShape(
-      path: octagon(width: 1.05, cut: 0.24, radius: 0.07), extrusionDepth: CGFloat(headLength))
-    head.chamferRadius = 0.07
-    head.chamferMode = .both
-    head.materials = [face, face, paint, edge, edge]
-    let collar = SCNCone(topRadius: 0.25, bottomRadius: 0.17, height: 1.1)
-    collar.materials = [rubber]
-    let shaft = SCNCylinder(radius: 0.16, height: CGFloat(handleLength))
-    shaft.materials = [fiberglass]
-    let grip = SCNCylinder(radius: 0.19, height: 1.6)
-    grip.materials = [rubber]
-    let band = SCNCylinder(radius: 0.195, height: 0.14)
-    band.materials = [fiberglass]
-    let rib = SCNTorus(ringRadius: 0.19, pipeRadius: 0.018)
-    rib.materials = [rubber]
-    let knob = SCNSphere(radius: 0.25)
-    knob.materials = [rubber]
-
-    func node(_ geometry: SCNGeometry, y: Float, scale: SIMD3<Float> = [1, 1, 1]) -> SCNNode {
-      let node = SCNNode(geometry: geometry)
-      node.simdPosition = [0, y, 0]
-      node.simdScale = scale
-      return node
+  private static func scanned() -> SCNNode {
+    let model = SCNNode()
+    if let url = Bundle.module.url(forResource: "Sledgehammer", withExtension: "obj"),
+      let scene = try? SCNScene(url: url)
+    {
+      for child in scene.rootNode.childNodes { model.addChildNode(child) }
     }
-    return [
-      node(head, y: handleLength),
-      node(collar, y: handleLength - 1.05),
-      node(shaft, y: handleLength / 2),
-      node(grip, y: 0.9),
-      node(band, y: 1.55),
-      node(knob, y: 0.08, scale: [1, 0.45, 1]),
-    ] + stride(from: Float(0.3), through: 1.4, by: 0.16).map { node(rib, y: $0) }
-  }
-
-  private static func octagon(width: CGFloat, cut: CGFloat, radius: CGFloat) -> NSBezierPath {
-    let half = width / 2
-    let corners = [
-      NSPoint(x: -half, y: -half + cut), NSPoint(x: -half + cut, y: -half),
-      NSPoint(x: half - cut, y: -half), NSPoint(x: half, y: -half + cut),
-      NSPoint(x: half, y: half - cut), NSPoint(x: half - cut, y: half),
-      NSPoint(x: -half + cut, y: half), NSPoint(x: -half, y: half - cut),
-    ]
-    let path = NSBezierPath()
-    path.move(to: NSPoint(x: -half, y: 0))
-    for (index, corner) in corners.enumerated() {
-      path.appendArc(from: corner, to: corners[(index + 1) % corners.count], radius: radius)
-    }
-    path.close()
-    return path
-  }
-
-  private static func texture(_ value: (Int, Int) -> Double) -> CGImage {
-    let size = 256
-    let pixels = (0..<size * size).map { index in
-      UInt8(min(max(value(index % size, index / size), 0), 1) * 255)
-    }
-    return CGImage(
-      width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: size,
-      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(),
-      provider: CGDataProvider(data: Data(pixels) as CFData)!, decode: nil,
-      shouldInterpolate: true, intent: .defaultIntent)!
-  }
-
-  private static func material(_ color: Any, metalness: CGFloat, roughness: Any) -> SCNMaterial {
     let material = SCNMaterial()
     material.lightingModel = .physicallyBased
-    material.diffuse.contents = color
-    material.metalness.contents = metalness
-    material.roughness.contents = roughness
-    return material
-  }
-
-  private static func studio() -> NSImage {
-    NSImage(size: NSSize(width: 1024, height: 512), flipped: false) { rect in
-      NSGradient(
-        colors: [
-          .init(white: 0.05, alpha: 1), .init(white: 0.18, alpha: 1), .init(white: 0.55, alpha: 1),
-          .init(white: 0.85, alpha: 1),
-        ],
-        atLocations: [0, 0.45, 0.6, 1], colorSpace: .sRGB
-      )?.draw(in: rect, angle: 90)
-      NSColor.white.setFill()
-      for softbox in [
-        NSRect(x: 120, y: 360, width: 260, height: 90),
-        NSRect(x: 620, y: 330, width: 160, height: 60),
-        NSRect(x: 420, y: 470, width: 300, height: 30),
-      ] {
-        NSBezierPath(roundedRect: softbox, xRadius: 16, yRadius: 16).fill()
-      }
-      return true
+    let texture = { (name: String) in
+      Bundle.module.url(forResource: "Sledgehammer\(name)", withExtension: nil)
     }
+    material.diffuse.contents = texture("Color.jpg")
+    material.normal.contents = texture("Normal.png")
+    material.roughness.contents = texture("Roughness.jpg")
+    material.metalness.contents = texture("Metalness.jpg")
+    model.enumerateHierarchy { node, _ in node.geometry?.materials = [material] }
+    model.simdPosition = [0, 0.27, 5.19]
+    let container = SCNNode()
+    container.simdOrientation =
+      simd_quatf(angle: .pi, axis: [0, 1, 0])
+      * simd_quatf(angle: .pi, axis: simd_normalize([0, 1, 1]))
+    container.addChildNode(model)
+    return container
   }
 }
