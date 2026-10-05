@@ -59,7 +59,7 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 ## How activity is counted
 
 - Edit the daily PR target in **Targets & Accounts**. Weekly and monthly targets update automatically using 5 days per week and 20 days per month: a daily target of 3 gives weekly and monthly targets of 15 and 60.
-- The activity view leads with today's count against your target, then week and month meters. Below them, every merged PR from the last 90 days is listed by day with that day's count against the daily target. Search filters the list by title, repository, or PR number.
+- The activity view leads with today's count against your target, then week and month meters. Below them, merged PRs are listed by day with that day's count against the daily target, starting with the last 7 days. **Older** and **Newer** step through the 90-day history a week at a time. Search looks through all 90 days by title, repository, or PR number.
 - While a week or month target is unmet, a marker shows where you should be after the weekdays elapsed so far, and the note says how far ahead or behind pace you are.
 - Targets count PRs **you authored**, using the time they were **merged**, including merges performed by someone else. Closed but unmerged PRs do not count.
 - Daily and monthly targets use your Mac's time zone. Weeks start Monday.
