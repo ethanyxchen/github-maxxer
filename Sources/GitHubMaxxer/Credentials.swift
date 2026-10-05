@@ -21,32 +21,8 @@ struct CredentialStore: CredentialStorage {
       kSecValueData: Data(token.utf8), kSecAttrLabel: "Hammertime",
     ]
     let status = SecItemUpdate(query(id) as CFDictionary, attributes as CFDictionary)
-    if status == errSecItemNotFound {
-      var access: SecAccess?
-      try check(SecAccessCreate("Hammertime" as CFString, nil, &access))
-      var item = query(id).merging(attributes) { _, value in value }
-      item[kSecAttrAccess] = access!
-      item[kSecAttrAccessible] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-      try check(SecItemAdd(item as CFDictionary, nil))
-    } else {
-      try check(status)
-      var item = query(id)
-      item[kSecReturnRef] = true
-      var reference: CFTypeRef?
-      try check(SecItemCopyMatching(item as CFDictionary, &reference))
-      let keychainItem = reference as! SecKeychainItem
-      var access: SecAccess?
-      try check(SecKeychainItemCopyAccess(keychainItem, &access))
-      let entries = SecAccessCopyMatchingACLList(access!, kSecACLAuthorizationDecrypt) as! [SecACL]
-      for entry in entries {
-        var applications: CFArray?
-        var description: CFString?
-        var prompt = SecKeychainPromptSelector()
-        try check(SecACLCopyContents(entry, &applications, &description, &prompt))
-        try check(SecACLSetContents(entry, applications, "Hammertime" as CFString, prompt))
-      }
-      try check(SecKeychainItemSetAccess(keychainItem, access!))
-    }
+    guard status == errSecItemNotFound else { return try check(status) }
+    try check(SecItemAdd(query(id).merging(attributes) { _, value in value } as CFDictionary, nil))
   }
 
   func read(for id: UUID, allowInteraction: Bool = false) throws -> String {
