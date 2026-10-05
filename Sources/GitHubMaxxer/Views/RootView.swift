@@ -74,26 +74,24 @@ struct RootView: View {
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
       .navigationTitle(title(for: selection))
-      .toolbarBackground(.hidden, for: .windowToolbar)
       .toolbar(removing: .title)
       .toolbar {
         ToolbarSpacer(.flexible)
-        if model.isRefreshing {
-          ToolbarItem(placement: .primaryAction) {
-            ProgressView().controlSize(.small).help("Refreshing GitHub activity")
-          }
-        }
         ToolbarItem(placement: .primaryAction) {
           Button {
             Task { await model.refresh(authorizeKeychain: true) }
           } label: {
-            Label("Refresh", systemImage: "arrow.clockwise")
+            if model.isRefreshing {
+              ProgressView().controlSize(.small)
+            } else {
+              Label("Refresh", systemImage: "arrow.clockwise")
+            }
           }
           .keyboardShortcut("r", modifiers: .command)
           .disabled(
             model.isRefreshing || model.isConnecting || model.connections.isEmpty || model.isPreview
           )
-          .help("Refresh GitHub activity (⌘R)")
+          .help(model.isRefreshing ? "Refreshing GitHub activity" : "Refresh GitHub activity (⌘R)")
         }
       }
     }
