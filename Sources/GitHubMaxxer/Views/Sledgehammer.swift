@@ -11,6 +11,7 @@ struct Swing {
       MoveKeyframe(40)
       CubicKeyframe(32, duration: 0.3)
       LinearKeyframe(0, duration: Slam.impact - 0.3, timingCurve: .easeIn)
+      LinearKeyframe(0, duration: Slam.hold)
       CubicKeyframe(5, duration: 0.1)
       CubicKeyframe(0, duration: 0.1)
       LinearKeyframe(0, duration: 0.15)
@@ -20,7 +21,7 @@ struct Swing {
       MoveKeyframe(0)
       LinearKeyframe(0, duration: entrance)
       LinearKeyframe(1, duration: 0.1)
-      LinearKeyframe(1, duration: Slam.impact + 0.25)
+      LinearKeyframe(1, duration: Slam.release + 0.25)
       LinearKeyframe(0, duration: 0.25)
     }
   }

@@ -1,8 +1,11 @@
+import AVFoundation
 import SwiftUI
 
 enum Slam {
   static let impact = 0.55
-  static let shatter = impact + 0.45
+  static let hold = 0.09
+  static let release = impact + hold
+  static let shatter = release + 0.36
   static let reveal = 2.5
   static let impactHeight = 0.55
 }
@@ -46,6 +49,10 @@ struct HammerSlam: View {
       .background {
         PageCapture(landing: landing) { landing, layers in page = (landing, layers) }
       }
+      .task(id: landing) {
+        guard let landing else { return }
+        Soundtrack.shared.play(elapsed: -landing.date.timeIntervalSinceNow)
+      }
       .allowsHitTesting(false)
       .accessibilityHidden(true)
     }
@@ -53,6 +60,32 @@ struct HammerSlam: View {
 
   private var seed: Int {
     landing.map { Int($0.date.timeIntervalSince1970 * 1000) % 9973 } ?? 0
+  }
+}
+
+@MainActor
+private final class Soundtrack {
+  static let shared = Soundtrack()
+  private let cues = [
+    (Slam.impact, Soundtrack.player("Impact")), (Slam.shatter, Soundtrack.player("Shatter")),
+  ]
+
+  func play(elapsed: Double) {
+    guard elapsed < Slam.impact else { return }
+    for (time, player) in cues {
+      guard let player else { continue }
+      player.stop()
+      player.currentTime = 0
+      player.play(atTime: player.deviceCurrentTime + time - elapsed)
+    }
+  }
+
+  private static func player(_ name: String) -> AVAudioPlayer? {
+    let player = Bundle.module.url(forResource: name, withExtension: "caf").flatMap {
+      try? AVAudioPlayer(contentsOf: $0)
+    }
+    player?.prepareToPlay()
+    return player
   }
 }
 
@@ -85,17 +118,17 @@ private struct PageCapture: NSViewRepresentable {
 private struct Shatter: View {
   static let rings = [0.01, 0.022, 0.04, 0.065, 0.1, 0.15, 0.22, 0.31, 0.43, 0.58, 0.78, 1.15]
   private static let growth = 0.18
-  private static let fall = 0.9
   private static let fade = 0.35
   static let duration = Slam.reveal + fade
   @MainActor private static let shake = KeyframeTimeline(initialValue: 0.0) {
     KeyframeTrack {
-      LinearKeyframe(0, duration: Slam.impact)
-      LinearKeyframe(20, duration: 0.04)
-      CubicKeyframe(-12, duration: 0.07)
-      CubicKeyframe(7, duration: 0.07)
-      CubicKeyframe(-3, duration: 0.07)
-      CubicKeyframe(0, duration: 0.09)
+      LinearKeyframe(0, duration: Slam.release)
+      LinearKeyframe(28, duration: 0.03)
+      CubicKeyframe(-18, duration: 0.06)
+      CubicKeyframe(11, duration: 0.07)
+      CubicKeyframe(-6, duration: 0.07)
+      CubicKeyframe(3, duration: 0.08)
+      CubicKeyframe(0, duration: 0.1)
     }
   }
   let time: Double
@@ -110,21 +143,21 @@ private struct Shatter: View {
         max(center.x, size.width - center.x), max(center.y, size.height - center.y))
       let web = Web(center: center, reach: reach, seed: seed)
       guard let layers, time >= Slam.impact else { return }
-      let growth = min(max((time - Slam.impact) / Self.growth, 0), 1)
+      let growth = min(max((time - Slam.release) / Self.growth, 0), 1)
       context.translateBy(x: 0, y: Self.shake.value(time: time))
       var backdrop = context
       backdrop.opacity = 1 - min(max((time - Slam.reveal) / Self.fade, 0), 1)
       backdrop.draw(context.resolve(Image(decorative: layers.backdrop, scale: 1)), in: bounds)
       web.shards(
-        in: &context, time: time - Slam.shatter, fall: Self.fall,
+        in: &context, time: time - Slam.shatter,
         extent: reach * Self.rings.last! * (1 - pow(1 - growth, 3)),
         content: context.resolve(Image(decorative: layers.content, scale: 1)), bounds: bounds)
-      flash(in: &context, at: center, radius: min(size.width, size.height) * 0.14)
+      flash(in: &context, at: center, radius: min(size.width, size.height) * 0.18)
     }
   }
 
   private func flash(in context: inout GraphicsContext, at center: CGPoint, radius: Double) {
-    let fade = 1 - (time - Slam.impact) / 0.25
+    let fade = 1 - max(time - Slam.release, 0) / 0.25
     guard fade > 0, fade <= 1 else { return }
     context.fill(
       Path(
@@ -144,40 +177,93 @@ private struct Web {
   private var spokes: Int { 12 + Int(random(0, 9) * 6) }
 
   func shards(
-    in context: inout GraphicsContext, time: Double, fall: Double,
-    extent: Double, content: GraphicsContext.ResolvedImage, bounds: CGRect
+    in context: inout GraphicsContext, time: Double, extent: Double,
+    content: GraphicsContext.ResolvedImage, bounds: CGRect
   ) {
-    for ring in (0..<Shatter.rings.count).reversed() {
-      for spoke in 0..<spokes {
-        let delay =
-          0.3 * Double(ring) / Double(Shatter.rings.count) + 0.12 * random(spoke * 5 + ring, 15)
-        let progress = min(max((time - delay) / fall, 0), 1)
-        guard progress < 1 else { continue }
-        var shard = Path()
-        shard.addLines([
-          vertex(spoke, ring - 1), kink(spoke, ring), vertex(spoke, ring),
-          vertex(spoke + 1, ring), kink(spoke + 1, ring), vertex(spoke + 1, ring - 1),
-        ])
-        shard.closeSubpath()
-        let middle = shard.boundingRect
-        let crack = extent >= distance(vertex(spoke, ring - 1)) ? 1.0 : 0
-        let drift = crack * (2 + 4 * random(spoke * 11 + ring, 19)) / max(distance(middle.mid), 1)
-        var piece = context
-        piece.opacity = 1 - pow(progress, 2)
-        piece.translateBy(
-          x: middle.midX + (middle.midX - center.x) * drift,
-          y: middle.midY + (middle.midY - center.y) * drift + reach * 0.6 * progress * progress)
-        piece.rotate(
-          by: .radians(
-            (random(spoke * 3 + ring, 16) - 0.5) * (1.4 * progress + 0.02 * crack)))
-        piece.scaleBy(x: 1 - 0.4 * progress, y: 1 - 0.4 * progress)
-        piece.translateBy(x: -middle.midX, y: -middle.midY)
-        piece.clip(to: shard)
-        piece.draw(content, in: bounds)
+    let pieces = (0..<Shatter.rings.count).reversed().flatMap { ring in
+      (0..<spokes).compactMap { spoke in
+        let outline = outline(spoke, ring)
+        return pose(spoke, ring, frame: outline.boundingRect, time: time, extent: extent).map {
+          (outline, $0)
+        }
+      }
+    }
+    if time > 0 {
+      context.drawLayer { shadows in
+        shadows.addFilter(.blur(radius: 4 + 14 * min(time, 1)))
+        for (outline, pose) in pieces where pose.lift > 0 {
+          var shadow = shadows
+          shadow.translateBy(x: pose.lift * 10, y: pose.lift * 26)
+          pose.apply(to: &shadow, around: outline.boundingRect)
+          shadow.fill(outline, with: .color(.black.opacity(0.2 * pose.opacity)))
+        }
+      }
+    }
+    for (outline, pose) in pieces {
+      var piece = context
+      pose.apply(to: &piece, around: outline.boundingRect)
+      if pose.lift > 0 {
+        var edge = piece
+        edge.clip(to: outline, options: .inverse)
+        edge.translateBy(x: pose.thickness * 0.5, y: pose.thickness)
+        edge.fill(outline, with: .color(Color(red: 0.55, green: 0.68, blue: 0.64).opacity(0.85)))
+      }
+      piece.drawLayer { face in
+        face.clip(to: outline)
+        face.draw(content, in: bounds)
+        let frame = outline.boundingRect
+        let sweep = (sin(pose.tumble * 2 + Double(frame.minX)) + 1) / 2
+        face.fill(
+          outline,
+          with: .linearGradient(
+            Gradient(stops: [
+              .init(color: .white.opacity(0.06 * pose.shine), location: 0),
+              .init(color: .white.opacity(0.4 * pose.shine), location: sweep),
+              .init(color: .white.opacity(0.04 * pose.shine), location: 1),
+            ]),
+            startPoint: CGPoint(x: frame.minX, y: frame.minY),
+            endPoint: CGPoint(x: frame.maxX, y: frame.maxY)))
+      }
+      if pose.cracked {
+        piece.stroke(outline, with: .color(.black.opacity(0.3)), lineWidth: 2.2)
+        piece.stroke(outline, with: .color(.white.opacity(0.85)), lineWidth: 1)
       }
     }
   }
 
+  private func outline(_ spoke: Int, _ ring: Int) -> Path {
+    var outline = Path()
+    outline.addLines([
+      vertex(spoke, ring - 1), kink(spoke, ring), vertex(spoke, ring),
+      vertex(spoke + 1, ring), kink(spoke + 1, ring), vertex(spoke + 1, ring - 1),
+    ])
+    outline.closeSubpath()
+    return outline
+  }
+
+  private func pose(_ spoke: Int, _ ring: Int, frame: CGRect, time: Double, extent: Double)
+    -> Pose?
+  {
+    let away = CGVector(dx: frame.midX - center.x, dy: frame.midY - center.y)
+    let distance = max(hypot(away.dx, away.dy), 1)
+    let cracked = extent >= self.distance(vertex(spoke, ring)) ? 1.0 : 0
+    let delay =
+      0.22 * Double(ring) / Double(Shatter.rings.count) + 0.08 * random(spoke * 5 + ring, 15)
+    let flight = max(time - delay, 0)
+    guard flight < Pose.life else { return nil }
+    let push =
+      cracked * (2 + 4 * random(spoke * 11 + ring, 19))
+      + reach * (0.1 + 0.9 * exp(-distance / (0.18 * reach))) * flight
+    return Pose(
+      offset: CGVector(
+        dx: away.dx / distance * push,
+        dy: away.dy / distance * push + reach * 1.3 * flight * flight),
+      spin: (random(spoke * 3 + ring, 16) - 0.5) * (0.04 * cracked + 5 * flight),
+      tumble: (random(spoke * 7 + ring, 20) - 0.5) * 9 * flight,
+      lift: flight,
+      opacity: min((Pose.life - flight) / 0.25, 1),
+      cracked: cracked > 0 || flight > 0)
+  }
   private func random(_ index: Int, _ salt: Int) -> Double { noise(index + seed, salt) }
 
   private func vertex(_ spoke: Int, _ ring: Int) -> CGPoint {
@@ -204,8 +290,26 @@ private struct Web {
   }
 }
 
-extension CGRect {
-  fileprivate var mid: CGPoint { CGPoint(x: midX, y: midY) }
+private struct Pose {
+  static let life = 1.15
+  let offset: CGVector
+  let spin: Double
+  let tumble: Double
+  let lift: Double
+  let opacity: Double
+  let cracked: Bool
+
+  var thickness: Double { 2 + 7 * abs(sin(tumble)) }
+  var shine: Double { min(lift * 4, 1) }
+
+  func apply(to context: inout GraphicsContext, around frame: CGRect) {
+    let scale = 1 + 0.9 * lift
+    context.opacity = opacity
+    context.translateBy(x: frame.midX + offset.dx, y: frame.midY + offset.dy)
+    context.rotate(by: .radians(spin))
+    context.scaleBy(x: scale * max(abs(cos(tumble)), 0.15), y: scale)
+    context.translateBy(x: -frame.midX, y: -frame.midY)
+  }
 }
 
 struct MergedStamp: View {
