@@ -55,7 +55,7 @@ struct RepositoriesView: View {
                   }
                 ))
               Spacer()
-              Menu("Track owners") {
+              Menu("Count repositories from") {
                 ForEach(Set(account.snapshot.repositories.map(\.owner)).sorted(), id: \.self) {
                   owner in
                   Toggle(owner, isOn: ownerBinding(owner, account: account))
@@ -76,7 +76,7 @@ struct RepositoriesView: View {
               .disabled(model.organizations.isEmpty)
             }
             Text(
-              "Owner selections include current and future repositories. Tracked repositories count toward your PR targets."
+              "Only PRs you author count. Choosing an organisation or account under Count repositories from includes all of its repositories, now and in future."
             )
             .font(.callout).foregroundStyle(.secondary)
           }
