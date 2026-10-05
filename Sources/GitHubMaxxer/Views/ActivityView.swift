@@ -10,9 +10,9 @@ struct ActivityView: View {
 
   private var interval: DateInterval { Activity.page(page, endingAt: model.now) }
 
-  private var days: [(day: Date, pulls: [MergedPullRequest])] {
+  private func days(in pulls: [MergedPullRequest]) -> [(day: Date, pulls: [MergedPullRequest])] {
     let interval = interval
-    let pulls = model.pullRequests(for: filter).filter { pull in
+    let pulls = pulls.filter { pull in
       guard !search.isEmpty else {
         return pull.mergedAt >= interval.start && pull.mergedAt < interval.end
       }
@@ -26,13 +26,14 @@ struct ActivityView: View {
   }
 
   var body: some View {
-    ScrollViewReader { proxy in
+    let pulls = model.pullRequests(for: filter)
+    return ScrollViewReader { proxy in
       ScrollView {
         VStack(spacing: 0) {
           PageTitle(title).padding(.top, 28)
-          progress.padding(.top, 24).padding(.bottom, 32)
+          progress(pulls).padding(.top, 24).padding(.bottom, 32)
           Rule()
-          log.padding(.vertical, 20).id("log")
+          log(days(in: pulls)).padding(.vertical, 20).id("log")
           if search.isEmpty { pager.padding(.bottom, 28) }
         }
         .padding(.horizontal, 40)
@@ -46,20 +47,23 @@ struct ActivityView: View {
     .searchable(text: $search, placement: .toolbar, prompt: "Search merges")
   }
 
-  private var progress: some View {
+  private func progress(_ pulls: [MergedPullRequest]) -> some View {
     HStack(alignment: .top, spacing: 48) {
-      today.frame(maxWidth: .infinity, alignment: .leading)
+      today(progress(.day, in: pulls)).frame(maxWidth: .infinity, alignment: .leading)
       VStack(alignment: .leading, spacing: 28) {
-        period(.week)
-        period(.month)
+        period(.week, progress(.week, in: pulls))
+        period(.month, progress(.month, in: pulls))
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
 
-  private var today: some View {
-    let progress = model.progress(for: .day, filter: filter)
-    return VStack(alignment: .leading, spacing: 16) {
+  private func progress(_ period: GoalPeriod, in pulls: [MergedPullRequest]) -> GoalProgress {
+    GoalProgress(count: period.count(in: pulls, now: model.now), target: model.goals[period])
+  }
+
+  private func today(_ progress: GoalProgress) -> some View {
+    VStack(alignment: .leading, spacing: 16) {
       Eyebrow("Today")
       HStack(alignment: .firstTextBaseline, spacing: 10) {
         Text(padded(progress.count)).font(.readout(64))
@@ -77,9 +81,8 @@ struct ActivityView: View {
       "Today: \(progress.count) merged PRs, target \(progress.target). \(status(progress))")
   }
 
-  private func period(_ period: GoalPeriod) -> some View {
-    let progress = model.progress(for: period, filter: filter)
-    return VStack(alignment: .leading, spacing: 10) {
+  private func period(_ period: GoalPeriod, _ progress: GoalProgress) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .firstTextBaseline) {
         Text(period.title).fontWeight(.semibold)
         Text(periodDateLabel(period, now: model.now)).font(.caption)
@@ -101,8 +104,7 @@ struct ActivityView: View {
   }
 
   @ViewBuilder
-  private var log: some View {
-    let days = days
+  private func log(_ days: [(day: Date, pulls: [MergedPullRequest])]) -> some View {
     if days.isEmpty {
       if search.isEmpty {
         ContentUnavailableView(
