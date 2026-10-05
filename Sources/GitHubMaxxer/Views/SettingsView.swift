@@ -13,86 +13,79 @@ struct SettingsView: View {
   }
 
   var body: some View {
-    Form {
-      Section {
-        ForEach(GoalPeriod.allCases) { period in
-          HStack {
-            Text(period.targetLabel)
-            Spacer()
-            if period == .day {
-              TextField("Pull requests", value: dailyGoal, format: .number.grouping(.never))
-                .labelsHidden().accessibilityLabel(period.targetLabel)
-                .multilineTextAlignment(.trailing).frame(width: 56)
-                .monospacedDigit()
-              Stepper(period.targetLabel, value: dailyGoal, in: Goals.dailyRange)
-                .labelsHidden().fixedSize()
-            } else {
-              Text(model.goals[period], format: .number.grouping(.never))
-                .monospacedDigit()
-            }
-            Text("PRs").foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
-          }
-          .padding(.vertical, 4)
-        }
-      } header: {
-        SectionHeading("Merged PR targets")
-      } footer: {
-        Text(
-          "Weekly and monthly targets follow your daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
-        )
-        .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
-      }
-      Section {
-        ForEach(model.connections) { connection in
-          VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-              Image(systemName: "person.crop.circle.fill")
-                .font(.title).foregroundStyle(.secondary)
-              VStack(alignment: .leading, spacing: 4) {
-                ConnectionNameField(connection: connection)
-                Link("@\(connection.profile.login)", destination: connection.profileURL)
-                  .font(.callout)
-              }
+    ScrollView {
+      VStack(alignment: .leading, spacing: 24) {
+        SettingsSection(
+          "Merged PR targets",
+          footer:
+            "Weekly and monthly targets follow your daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
+        ) {
+          ForEach(GoalPeriod.allCases) { period in
+            HStack {
+              Text(period.targetLabel)
               Spacer()
-              Menu {
-                Button("Reconnect…") { showConnection(connection) }
-                Divider()
-                Button("Disconnect…", role: .destructive) { removing = connection }
-              } label: {
-                Image(systemName: "ellipsis.circle")
+              if period == .day {
+                TextField("Pull requests", value: dailyGoal, format: .number.grouping(.never))
+                  .labelsHidden().accessibilityLabel(period.targetLabel)
+                  .textFieldStyle(.plain)
+                  .multilineTextAlignment(.trailing).frame(width: 56)
+                  .monospacedDigit()
+                Stepper(period.targetLabel, value: dailyGoal, in: Goals.dailyRange)
+                  .labelsHidden().fixedSize()
+              } else {
+                Text(model.goals[period], format: .number.grouping(.never))
+                  .monospacedDigit()
               }
-              .menuStyle(.borderlessButton).fixedSize().disabled(model.isPreview)
-              .accessibilityLabel("Manage \(connection.label)")
-            }
-            if let error = model.connectionErrors[connection.id] {
-              Label(error, systemImage: "exclamationmark.circle")
-                .font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+              Text("PRs").foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
             }
           }
-          .padding(.vertical, 6)
         }
-        Button {
-          showConnection(nil)
-        } label: {
-          Label("Add GitHub connection…", systemImage: "plus")
+        SettingsSection(
+          "GitHub connections",
+          footer:
+            "Connect personal and work accounts. Signing in to the same account again updates its credential and keeps your repository selections. Credentials are stored in macOS Keychain. Activity is saved locally so it stays available offline."
+        ) {
+          ForEach(model.connections) { connection in
+            VStack(alignment: .leading, spacing: 10) {
+              HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "person.crop.circle.fill")
+                  .font(.title).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                  ConnectionNameField(connection: connection)
+                  Link("@\(connection.profile.login)", destination: connection.profileURL)
+                    .font(.callout)
+                }
+                Spacer()
+                Menu {
+                  Button("Reconnect…") { showConnection(connection) }
+                  Divider()
+                  Button("Disconnect…", role: .destructive) { removing = connection }
+                } label: {
+                  Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton).fixedSize().disabled(model.isPreview)
+                .accessibilityLabel("Manage \(connection.label)")
+              }
+              if let error = model.connectionErrors[connection.id] {
+                Label(error, systemImage: "exclamationmark.circle")
+                  .font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+              }
+            }
+          }
+          Button {
+            showConnection(nil)
+          } label: {
+            Label("Add GitHub connection…", systemImage: "plus")
+          }
+          .disabled(model.isPreview)
         }
-        .disabled(model.isPreview)
-      } header: {
-        SectionHeading("GitHub connections")
-      } footer: {
-        Text(
-          "Connect personal and work accounts. Signing in to the same account again updates its credential and keeps your repository selections. Credentials are stored in macOS Keychain. Activity is saved locally so it stays available offline."
-        )
-        .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
+        SettingsSection("Updates") {
+          LabeledContent("Refresh", value: "Every minute while the app is running")
+          LabeledContent("History", value: "Merged PRs from the last 90 days")
+        }
       }
-      Section {
-        LabeledContent("Refresh", value: "Every minute while the app is running")
-        LabeledContent("History", value: "Merged PRs from the last 90 days")
-      } header: {
-        SectionHeading("Updates")
-      }
+      .padding(20)
     }
-    .formStyle(.grouped)
     .sheet(item: $draft) { ConnectionSheet(existing: $0.existing).environment(model) }
     .confirmationDialog(
       "Disconnect \(removing?.label ?? "GitHub")?",
@@ -126,13 +119,46 @@ struct SettingsView: View {
   }
 }
 
-private struct SectionHeading: View {
+private struct SettingsSection<Content: View>: View {
   let title: String
+  var footer: String?
+  let content: Content
+  private let inset: CGFloat = 10
 
-  init(_ title: String) { self.title = title }
+  init(_ title: String, footer: String? = nil, @ViewBuilder content: () -> Content) {
+    self.title = title
+    self.footer = footer
+    self.content = content()
+  }
 
   var body: some View {
-    Text(title).padding(.leading, -10).frame(maxWidth: .infinity, alignment: .leading)
+    VStack(alignment: .leading, spacing: 8) {
+      Text(title).font(.headline)
+      VStack(alignment: .leading, spacing: 0) {
+        Group(subviews: content) { rows in
+          ForEach(rows) { row in
+            if row.id != rows.first?.id { Divider() }
+            row.padding(.vertical, 12)
+          }
+        }
+      }
+      .labeledContentStyle(SettingsRowStyle())
+      .padding(.horizontal, inset)
+      .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 10))
+      if let footer {
+        Text(footer).font(.subheadline).foregroundStyle(.secondary).padding(.horizontal, inset)
+      }
+    }
+  }
+}
+
+private struct SettingsRowStyle: LabeledContentStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    HStack {
+      configuration.label
+      Spacer()
+      configuration.content.foregroundStyle(.secondary)
+    }
   }
 }
 
