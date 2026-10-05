@@ -81,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           exit(1)
         }
       }
-    } else {
+    } else if !ProcessInfo.processInfo.arguments.contains("--no-activate") {
       NSApplication.shared.activate(ignoringOtherApps: true)
     }
   }
