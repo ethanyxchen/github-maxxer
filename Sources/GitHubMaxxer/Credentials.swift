@@ -4,7 +4,7 @@ import Security
 @MainActor
 protocol CredentialStorage {
   func save(_ token: String, for id: UUID) throws
-  func read(for id: UUID, allowInteraction: Bool) throws -> String
+  func read(for id: UUID) throws -> String
   func delete(for id: UUID) throws
 }
 
@@ -25,11 +25,7 @@ struct CredentialStore: CredentialStorage {
     try check(SecItemAdd(query(id).merging(attributes) { _, value in value } as CFDictionary, nil))
   }
 
-  func read(for id: UUID, allowInteraction: Bool = false) throws -> String {
-    var interactionAllowed = DarwinBoolean(false)
-    try check(SecKeychainGetUserInteractionAllowed(&interactionAllowed))
-    try check(SecKeychainSetUserInteractionAllowed(allowInteraction))
-    defer { SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue) }
+  func read(for id: UUID) throws -> String {
     var item = query(id)
     item[kSecReturnData] = true
     item[kSecMatchLimit] = kSecMatchLimitOne
@@ -62,7 +58,7 @@ enum CredentialError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .keychain(errSecInteractionNotAllowed), .keychain(errSecAuthFailed):
-      "Keychain authorization is needed. Click Refresh to allow Hammertime to use this connection."
+      "Keychain access was denied. Click Refresh and allow Hammertime to use this connection."
     case .keychain(let status):
       "Keychain could not access this connection (\(status)). Unlock your Mac or reconnect the account."
     case .invalidData: "This saved credential could not be read. Reconnect the account."

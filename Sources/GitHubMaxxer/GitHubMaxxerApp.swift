@@ -56,7 +56,7 @@ private struct MenuBarView: View {
       openWindow(id: "main")
       NSApplication.shared.activate(ignoringOtherApps: true)
     }
-    Button("Refresh") { Task { await model.refresh(authorizeKeychain: true) } }
+    Button("Refresh") { Task { await model.refresh() } }
       .disabled(
         model.isRefreshing || model.isConnecting || model.connections.isEmpty || model.isPreview)
     SettingsLink()

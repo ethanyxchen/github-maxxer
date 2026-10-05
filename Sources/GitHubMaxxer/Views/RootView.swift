@@ -39,7 +39,7 @@ struct RootView: View {
 
   var body: some View {
     NavigationSplitView {
-      VStack(alignment: .leading, spacing: 22) {
+      List(selection: $selection) {
         section("Activity") {
           row(.activity(.all))
           row(.activity(.personal))
@@ -51,10 +51,8 @@ struct RootView: View {
           row(.repositories)
           row(.settings)
         }
-        Spacer(minLength: 0)
       }
-      .padding(.horizontal, 10).padding(.vertical, 12)
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .scrollContentBackground(.hidden)
       .background(Palette.sidebar)
       .background(SidebarResizeBehavior())
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
@@ -82,7 +80,7 @@ struct RootView: View {
         ToolbarSpacer(.flexible)
         ToolbarItem(placement: .primaryAction) {
           Button {
-            Task { await model.refresh(authorizeKeychain: true) }
+            Task { await model.refresh() }
           } label: {
             if model.isRefreshing {
               ProgressView().controlSize(.small)
@@ -130,9 +128,10 @@ struct RootView: View {
   }
 
   private func section(_ title: String, @ViewBuilder rows: () -> some View) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
-      Eyebrow(title).padding(.horizontal, 10).padding(.bottom, 6)
+    Section {
       rows()
+    } header: {
+      Eyebrow(title).padding(.horizontal, 10).listRowInsets(EdgeInsets())
     }
   }
 
@@ -140,9 +139,10 @@ struct RootView: View {
     SidebarRow(
       destination: destination, title: title(for: destination),
       isPinned: isPinned(destination), isSelected: selection == destination
-    ) {
-      selection = destination
-    }
+    )
+    .tag(destination)
+    .listRowInsets(EdgeInsets())
+    .listRowBackground(Palette.sidebar)
   }
 
   private func title(for destination: Destination) -> String {
@@ -248,33 +248,29 @@ private struct SidebarRow: View {
   let title: String
   let isPinned: Bool
   let isSelected: Bool
-  let select: () -> Void
   @State private var isHovering = false
 
   var body: some View {
-    Button(action: select) {
-      HStack(spacing: 10) {
-        Image(systemName: destination.symbol)
-          .frame(width: 18)
+    HStack(spacing: 10) {
+      Image(systemName: destination.symbol)
+        .frame(width: 18)
+        .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
+      Text(title).lineLimit(1)
+      Spacer(minLength: 0)
+      if isPinned {
+        Image(systemName: "pin.fill").font(.system(size: 9))
           .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
-        Text(title).lineLimit(1)
-        Spacer(minLength: 0)
-        if isPinned {
-          Image(systemName: "pin.fill").font(.system(size: 9))
-            .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
-            .accessibilityLabel("Pinned")
-        }
+          .accessibilityLabel("Pinned")
       }
-      .foregroundStyle(isSelected ? Palette.panel : Palette.ink)
-      .fontWeight(isSelected ? .semibold : .regular)
-      .padding(.horizontal, 10).frame(height: 30)
-      .background(
-        isSelected ? Palette.ink : isHovering ? Palette.ink.opacity(0.06) : .clear,
-        in: RoundedRectangle(cornerRadius: 3)
-      )
-      .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
+    .foregroundStyle(isSelected ? Palette.panel : Palette.ink)
+    .fontWeight(isSelected ? .semibold : .regular)
+    .padding(.horizontal, 10).frame(height: 30)
+    .background(
+      isSelected ? Palette.ink : isHovering ? Palette.ink.opacity(0.06) : .clear,
+      in: RoundedRectangle(cornerRadius: 3)
+    )
+    .contentShape(Rectangle())
     .onHover { isHovering = $0 }
     .accessibilityAddTraits(isSelected ? .isSelected : [])
   }

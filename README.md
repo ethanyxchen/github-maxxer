@@ -23,7 +23,7 @@ CODESIGN_IDENTITY='Apple Development: your name (identity)' ./scripts/build-app.
 
 List available identities with `security find-identity -v -p codesigning`. The first build with a new identity may need Keychain approval. Reconnect the GitHub account to save its credential with the current app's access description. Distributing the app to other Macs requires Developer ID signing and notarization.
 
-Self-signed and ad hoc builds (`CODESIGN_IDENTITY=-`) do not preserve Keychain approval across rebuilds because their code-hash partition changes. Automatic refresh reports missing authorization inside the app; only an explicit **Refresh** permits a Keychain authorization dialog.
+Self-signed and ad hoc builds (`CODESIGN_IDENTITY=-`) do not preserve Keychain approval across rebuilds because their code-hash partition changes.
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 
@@ -64,7 +64,7 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 - Targets count PRs **you authored**, using the time they were **merged**, including merges performed by someone else. Closed but unmerged PRs do not count.
 - Daily and monthly targets use your Mac's time zone. Weeks start Monday.
 - **Repositories** controls which repositories count toward PR targets. Choosing an organisation or account under **Count repositories from** includes all of its current and future accessible repositories. Only PRs you author ever count. Individual selections use GitHub repository IDs, so renaming a repository preserves its selection.
-- The sidebar lists **All activity**, **Personal**, and each organisation. Selecting one filters target progress and the merge list to that owner's repositories.
+- The sidebar lists **All activity**, **Personal**, and each organisation. Selecting one filters target progress and the merge list to that owner's repositories. Once the sidebar has focus, the arrow keys move between items and typing a name jumps to it.
 - Right-click an organisation to pin it to the top, rename it, or remove it from the sidebar. Names and pins only change how Hammertime shows the organisation, and a removed organisation still counts toward **All activity**. Bring removed organisations back from **Show in Sidebar** at the top of **Repositories**.
 - Merged PR history covers the last 90 calendar days. Large searches are split into smaller date ranges to avoid GitHub's 1,000-result search limit.
 
