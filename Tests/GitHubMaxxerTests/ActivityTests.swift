@@ -140,31 +140,6 @@ struct ActivityTests {
     #expect(GoalPeriod.day.pace(target: 3, now: friday, calendar: calendar) == 3)
   }
 
-  @Test func dailyCountsCoverHistoryByLocalDay() {
-    let now = date("2026-10-02T12:00:00Z")
-    let pulls = [
-      pull("today", "2026-10-02T09:00:00Z"),
-      pull("local-today", "2026-10-01T23:30:00Z"),
-      pull("yesterday", "2026-10-01T22:59:59Z"),
-    ]
-    let days = Activity.dailyCounts(pulls, endingAt: now, calendar: calendar)
-    #expect(days.count == 90)
-    #expect(days.last?.count == 2)
-    #expect(days.dropLast().last?.count == 1)
-    #expect(days.first?.day == Activity.historyInterval(endingAt: now, calendar: calendar).start)
-  }
-
-  @Test func weeksStartOnMondayAndPadPartialWeeks() {
-    let now = date("2026-10-02T12:00:00Z")
-    let days = Activity.dailyCounts([], endingAt: now, calendar: calendar)
-    let weeks = Activity.weeks(days, calendar: calendar)
-    #expect(weeks.allSatisfy { $0.count == 7 })
-    #expect(weeks.flatMap { $0 }.compactMap { $0 }.count == 90)
-    let firstMonday = weeks[1][0].map { calendar.component(.weekday, from: $0.day) }
-    #expect(firstMonday == 2)
-    #expect(weeks.last?[4]?.day == calendar.startOfDay(for: now))
-  }
-
   @Test func pagesStepBackSevenLocalDaysAndCoverHistory() {
     let now = date("2026-10-02T12:00:00Z")
     let latest = Activity.page(0, endingAt: now, calendar: calendar)

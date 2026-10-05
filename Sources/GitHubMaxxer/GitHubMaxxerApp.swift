@@ -77,7 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           let profile = try await client.profile()
           let snapshot = try await client.snapshot(login: profile.login)
           print(
-            "GitHub integration verified for @\(profile.login): \(snapshot.repositories.count) repositories, \(snapshot.pullRequests.count) merged PRs, \(snapshot.contributions.weeks.count) contribution weeks."
+            "GitHub integration verified for @\(profile.login): \(snapshot.repositories.count) repositories, \(snapshot.pullRequests.count) merged PRs."
           )
           exit(0)
         } catch {

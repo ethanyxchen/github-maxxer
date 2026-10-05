@@ -3,12 +3,11 @@ import SwiftUI
 
 private enum Destination: Hashable {
   case activity(ActivityFilter)
-  case history, repositories, settings
+  case repositories, settings
 
   var title: String {
     switch self {
     case .activity(let filter): filter.title
-    case .history: "History"
     case .repositories: "Repositories"
     case .settings: "Targets & Accounts"
     }
@@ -19,7 +18,6 @@ private enum Destination: Hashable {
     case .activity(.all): "square.stack"
     case .activity(.personal): "person"
     case .activity(.organization): "building.2"
-    case .history: "calendar"
     case .repositories: "folder"
     case .settings: "slider.horizontal.3"
     }
@@ -47,7 +45,6 @@ struct RootView: View {
             row(.activity(.organization(owner)))
           }
         }
-        section("Insights") { row(.history) }
         section("Manage") {
           row(.repositories)
           row(.settings)
@@ -180,11 +177,6 @@ struct RootView: View {
       } else {
         ActivityView(filter: filter).id(filter)
       }
-    case .history:
-      ScrollView {
-        RecordView().padding(40).frame(maxWidth: 960, alignment: .leading)
-      }
-      .background(Palette.panel)
     case .repositories: RepositoriesView()
     case .settings:
       SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }

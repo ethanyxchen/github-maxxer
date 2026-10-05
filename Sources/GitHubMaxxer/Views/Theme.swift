@@ -12,15 +12,6 @@ enum Palette {
   static let reached = dynamic(light: 0x3FAE62, dark: 0x2F9E55)
   static let over = dynamic(light: 0x0E6B35, dark: 0x7CF0A2)
 
-  static func fill(count: Int, target: Int) -> Color {
-    switch count {
-    case 0: empty
-    case ..<target: secondary.opacity(0.35)
-    case target: reached
-    default: over
-    }
-  }
-
   private static func dynamic(light: UInt32, dark: UInt32) -> Color {
     Color(
       nsColor: NSColor(name: nil) { appearance in

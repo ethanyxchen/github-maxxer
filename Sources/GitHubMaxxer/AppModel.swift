@@ -8,6 +8,8 @@ struct AccountConnection: Codable, Identifiable {
   var profile: GitHubProfile
   var scope: RepositoryScope
   var snapshot: GitHubSnapshot
+
+  var profileURL: URL { URL(string: "https://github.com/\(profile.login)")! }
 }
 
 private struct SavedState: Codable {
@@ -80,13 +82,6 @@ final class AppModel {
     filter.pullRequests(in: pullRequests, personalLogins: Set(connections.map(\.profile.login)))
   }
 
-  var contributionAccounts: [AccountConnection] {
-    var seen = Set<String>()
-    return connections.sorted {
-      $0.snapshot.fetchedAt > $1.snapshot.fetchedAt
-    }.filter { seen.insert($0.profile.id).inserted }.sorted { $0.profile.login < $1.profile.login }
-  }
-
   var trackedRepositoryCount: Int {
     Set(
       connections.flatMap { account in
@@ -111,10 +106,6 @@ final class AppModel {
     -> [MergedPullRequest]
   {
     period.pullRequests(in: pullRequests(for: filter), now: now)
-  }
-
-  func dailyCounts(for filter: ActivityFilter) -> [DailyCount] {
-    Activity.dailyCounts(pullRequests(for: filter), endingAt: now)
   }
 
   func setDailyGoal(_ value: Int) {

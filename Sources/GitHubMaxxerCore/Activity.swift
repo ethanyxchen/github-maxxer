@@ -61,11 +61,6 @@ public enum GoalPeriod: String, CaseIterable, Codable, Sendable, Identifiable {
   }
 }
 
-public struct DailyCount: Sendable, Equatable {
-  public let day: Date
-  public let count: Int
-}
-
 public struct Goals: Codable, Sendable, Equatable {
   public static let dailyRange = 1...10_000
   public let daily: Int
@@ -157,27 +152,6 @@ public enum Activity {
     let end = calendar.date(
       byAdding: .day, value: 1 - index * pageDays, to: calendar.startOfDay(for: now))!
     return DateInterval(start: calendar.date(byAdding: .day, value: -pageDays, to: end)!, end: end)
-  }
-
-  public static func dailyCounts(
-    _ pullRequests: [MergedPullRequest], endingAt now: Date, calendar: Calendar = .current
-  ) -> [DailyCount] {
-    let counts = Dictionary(grouping: pullRequests) { calendar.startOfDay(for: $0.mergedAt) }
-      .mapValues(\.count)
-    let today = calendar.startOfDay(for: now)
-    return sequence(first: historyInterval(endingAt: now, calendar: calendar).start) {
-      calendar.date(byAdding: .day, value: 1, to: $0)
-    }
-    .prefix { $0 <= today }
-    .map { DailyCount(day: $0, count: counts[$0] ?? 0) }
-  }
-
-  public static func weeks(_ days: [DailyCount], calendar: Calendar = .current) -> [[DailyCount?]] {
-    guard let first = days.first else { return [] }
-    let leading = (calendar.component(.weekday, from: first.day) + 5) % 7
-    let cells: [DailyCount?] = Array(repeating: nil, count: leading) + days
-    let padded = cells + Array(repeating: nil, count: (7 - cells.count % 7) % 7)
-    return stride(from: 0, to: padded.count, by: 7).map { Array(padded[$0..<$0 + 7]) }
   }
 
   public static func mergedPullRequests(from sources: [ScopedActivity]) -> [MergedPullRequest] {

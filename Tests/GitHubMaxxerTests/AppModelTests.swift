@@ -188,11 +188,7 @@ private final class SignedInProtocol: URLProtocol, @unchecked Sendable {
     do {
       let query = try requestBody(request)["query"] as! String
       let body: String
-      if query.contains("contributionsCollection") {
-        body = """
-          {"data":{"viewer":{"contributionsCollection":{"contributionCalendar":{"totalContributions":0,"weeks":[]}}}}}
-          """
-      } else if query.contains("repositories(first") {
+      if query.contains("repositories(first") {
         body = """
           {"data":{"viewer":{"repositories":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
           """

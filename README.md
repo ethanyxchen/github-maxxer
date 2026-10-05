@@ -2,7 +2,7 @@
 
 A native macOS app for tracking the pull requests you merge, across personal projects and work repositories.
 
-Set daily, weekly, and monthly targets. Connect multiple GitHub accounts, choose entire repository owners or individual repositories, and see your progress alongside GitHub's contribution calendar. The app uses SwiftUI navigation, forms, tables, toolbars, settings, and a menu bar item, and follows your system appearance.
+Set daily, weekly, and monthly targets. Connect multiple GitHub accounts, choose entire repository owners or individual repositories, and see your progress against them. The app uses SwiftUI navigation, forms, tables, toolbars, settings, and a menu bar item, and follows your system appearance.
 
 ## Run locally
 
@@ -65,8 +65,6 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 - Daily and monthly targets use your Mac's time zone. Weeks start Monday.
 - **Repositories** controls which repositories count toward PR targets. Selecting an owner includes its current and future accessible repositories. Individual selections use GitHub repository IDs, so renaming a repository preserves its selection.
 - The sidebar lists **All activity**, **Personal**, and each organisation. Selecting one filters target progress and the merge list to that owner's repositories.
-- **History** shows the last 90 days as one square per day: grey below the daily target, green when reached, and deep green when exceeded. Switch to **GitHub** to see GitHub's contribution calendar instead.
-- The contribution calendar comes directly from GitHub and retains GitHub's counts and intensity levels. It includes account-wide commits, issues, reviews, and opened PRs; its data is independent of the repositories selected for PR targets.
 - Merged PR history covers the last 90 calendar days. Large searches are split into smaller date ranges to avoid GitHub's 1,000-result search limit.
 
 Activity refreshes approximately every minute while the app is running, when the window becomes active, or with **⌘R**. The menu bar item shows target progress and reopens the window. Closing the window keeps the app running; quitting stops updates. Updates depend on GitHub's search indexing and API availability. No webhooks or server are required.
