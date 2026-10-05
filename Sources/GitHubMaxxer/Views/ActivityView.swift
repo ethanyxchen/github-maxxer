@@ -65,9 +65,7 @@ struct ActivityView: View {
         Text(padded(progress.count)).font(.readout(64))
         Text("/ \(padded(progress.target))").font(.readout(22)).foregroundStyle(Palette.secondary)
       }
-      SegmentMeter(
-        count: progress.count, target: progress.target,
-        scale: max(progress.target * 2, progress.count))
+      SegmentMeter(count: progress.count, target: progress.target)
       HStack(spacing: 8) {
         Lamp(isOn: progress.isComplete)
         Text(status(progress)).font(.system(size: 12, design: .monospaced))
@@ -81,7 +79,6 @@ struct ActivityView: View {
 
   private func period(_ period: GoalPeriod) -> some View {
     let progress = model.progress(for: period, filter: filter)
-    let scale = period == .week ? progress.target + progress.target / 3 : progress.target
     return VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .firstTextBaseline) {
         Text(period.title).fontWeight(.semibold)
@@ -91,7 +88,7 @@ struct ActivityView: View {
         Text("\(padded(progress.count)) / \(padded(progress.target))").font(.readout(14))
       }
       SegmentMeter(
-        count: progress.count, target: progress.target, scale: max(scale, progress.count),
+        count: progress.count, target: progress.target,
         pace: progress.isComplete ? nil : period.pace(target: progress.target, now: model.now),
         height: 14)
       Text(note(period, progress)).font(.system(size: 11, design: .monospaced))

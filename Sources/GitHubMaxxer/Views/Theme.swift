@@ -75,10 +75,10 @@ struct Lamp: View {
 struct SegmentMeter: View {
   let count: Int
   let target: Int
-  let scale: Int
   var pace: Int?
   var height: CGFloat = 18
 
+  private var scale: Int { max(target, count) }
   private var segments: Int { max(1, min(scale, 60)) }
 
   var body: some View {
