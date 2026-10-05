@@ -1,8 +1,9 @@
 import SwiftUI
 
 enum Slam {
-  static let hits = [0.55, 1.15, 1.8]
-  static let impact = hits[2]
+  static let impact = 0.55
+  static let shatter = impact + 0.45
+  static let reveal = 2.5
   static let impactHeight = 0.55
 }
 
@@ -29,16 +30,20 @@ struct Choreography<Content: View>: View {
 
 struct HammerSlam: View {
   let landing: Landing?
+  @State private var page: (landing: Landing, image: NSImage)?
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     if !reduceMotion {
       Choreography(landing: landing, duration: Glass.duration) { time in
-        Glass(time: time, seed: seed)
-        if time < Swing.timeline.duration {
+        Glass(time: time, seed: seed, page: page.flatMap { $0.landing == landing ? $0.image : nil })
+        if time > Swing.entrance, time < Swing.timeline.duration {
           let swing = Swing.timeline.value(time: time)
           Sledgehammer(swing: swing).opacity(swing.opacity)
         }
+      }
+      .background {
+        PageCapture(landing: landing) { landing, image in page = (landing, image) }
       }
       .allowsHitTesting(false)
       .accessibilityHidden(true)
@@ -50,17 +55,42 @@ struct HammerSlam: View {
   }
 }
 
+private struct PageCapture: NSViewRepresentable {
+  let landing: Landing?
+  let capture: (Landing, NSImage) -> Void
+
+  func makeNSView(context: Context) -> NSView { NSView() }
+
+  func updateNSView(_ view: NSView, context: Context) {
+    guard let landing, landing != context.coordinator.landing else { return }
+    context.coordinator.landing = landing
+    DispatchQueue.main.async {
+      guard let content = view.window?.contentView else { return }
+      let frame = view.convert(view.bounds, to: content)
+      guard let bitmap = content.bitmapImageRepForCachingDisplay(in: frame) else { return }
+      content.cacheDisplay(in: frame, to: bitmap)
+      let image = NSImage(size: frame.size)
+      image.addRepresentation(bitmap)
+      capture(landing, image)
+    }
+  }
+
+  func makeCoordinator() -> Coordinator { Coordinator() }
+
+  final class Coordinator {
+    var landing: Landing?
+  }
+}
+
 private struct Glass: View {
-  private static let rings = [
-    0.01, 0.022, 0.04, 0.065, 0.1, 0.15, 0.22, 0.31, 0.43, 0.58, 0.78, 1.15,
-  ]
-  private static let reaches = [0.12, 0.3, 1.15]
-  private static let growths = [0.1, 0.12, 0.3]
-  private static let shatter = Slam.impact + 0.08
+  static let rings = [0.01, 0.022, 0.04, 0.065, 0.1, 0.15, 0.22, 0.31, 0.43, 0.58, 0.78, 1.15]
+  private static let growth = 0.18
   private static let fall = 0.9
-  static let duration = shatter + 0.5 + fall
+  private static let fade = 0.35
+  static let duration = Slam.reveal + fade
   let time: Double
   let seed: Int
+  let page: NSImage?
 
   var body: some View {
     Canvas { context, size in
@@ -68,148 +98,140 @@ private struct Glass: View {
       let reach = hypot(
         max(center.x, size.width - center.x), max(center.y, size.height - center.y))
       let web = Web(center: center, reach: reach, seed: seed)
-      for hit in Slam.hits where time >= hit && time < hit + 0.2 {
-        let fade = 1 - (time - hit) / 0.2
-        let radius = min(size.width, size.height) * 0.12
-        context.fill(
-          Path(
-            ellipseIn: CGRect(
-              x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
-          with: .radialGradient(
-            Gradient(colors: [.white.opacity(fade), .clear]), center: center, startRadius: 0,
-            endRadius: radius))
-      }
-      if time < Self.shatter {
-        web.cracks(in: &context, extent: extent * reach)
-      } else {
-        web.shards(in: &context, time: time - Self.shatter)
+      let darkness =
+        time < Slam.shatter ? 0 : 1 - min(max((time - Slam.reveal) / Self.fade, 0), 1)
+      context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black.opacity(darkness)))
+      if time < Slam.shatter {
+        flash(in: &context, at: center, radius: min(size.width, size.height) * 0.14)
+        let growth = min(max((time - Slam.impact) / Self.growth, 0), 1)
+        web.cracks(in: &context, extent: reach * Self.rings.last! * (1 - pow(1 - growth, 3)))
+      } else if time < Slam.reveal {
+        web.shards(
+          in: &context, time: time - Slam.shatter, fall: Self.fall,
+          page: page.map { context.resolve(Image(nsImage: $0)) }, size: size)
       }
     }
   }
 
-  private var extent: Double {
-    Slam.hits.indices.reduce(0) { extent, hit in
-      let progress = min(max((time - Slam.hits[hit]) / Self.growths[hit], 0), 1)
-      return extent + (Self.reaches[hit] - extent) * (1 - pow(1 - progress, 2))
+  private func flash(in context: inout GraphicsContext, at center: CGPoint, radius: Double) {
+    let fade = 1 - (time - Slam.impact) / 0.25
+    guard fade > 0, fade <= 1 else { return }
+    context.fill(
+      Path(
+        ellipseIn: CGRect(
+          x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
+      with: .radialGradient(
+        Gradient(colors: [.white.opacity(fade), .clear]), center: center, startRadius: 0,
+        endRadius: radius))
+  }
+}
+
+private struct Web {
+  let center: CGPoint
+  let reach: Double
+  let seed: Int
+
+  private var spokes: Int { 12 + Int(random(0, 9) * 6) }
+
+  func cracks(in context: inout GraphicsContext, extent: Double) {
+    var path = Path()
+    for spoke in 0..<spokes {
+      path.move(to: center)
+      let points = (0..<length(spoke)).flatMap { [kink(spoke, $0), vertex(spoke, $0)] }
+      for (start, end) in zip([center] + points, points) {
+        let from = distance(start)
+        guard extent > from else { break }
+        let progress = min((extent - from) / max(distance(end) - from, 1), 1)
+        path.addLine(
+          to: CGPoint(
+            x: start.x + (end.x - start.x) * progress, y: start.y + (end.y - start.y) * progress))
+      }
+      for ring in 0..<min(length(spoke), length(spoke + 1))
+      where random(spoke * 7 + ring, 13) > 0.1 + 0.1 * Double(ring) {
+        let start = vertex(spoke, ring)
+        let end = vertex(spoke + 1, ring)
+        guard extent >= max(distance(start), distance(end)) else { continue }
+        path.move(to: start)
+        path.addLine(to: end)
+      }
+    }
+    context.stroke(path, with: .color(.black.opacity(0.35)), lineWidth: 2.4)
+    context.stroke(path, with: .color(.white.opacity(0.9)), lineWidth: 1)
+  }
+
+  func shards(
+    in context: inout GraphicsContext, time: Double, fall: Double,
+    page: GraphicsContext.ResolvedImage?, size: CGSize
+  ) {
+    for ring in (0..<Glass.rings.count).reversed() {
+      for spoke in 0..<spokes {
+        let delay =
+          0.3 * Double(ring) / Double(Glass.rings.count) + 0.12 * random(spoke * 5 + ring, 15)
+        let progress = min(max((time - delay) / fall, 0), 1)
+        guard progress < 1 else { continue }
+        var shard = Path()
+        shard.addLines([
+          vertex(spoke, ring - 1), kink(spoke, ring), vertex(spoke, ring),
+          vertex(spoke + 1, ring), kink(spoke + 1, ring), vertex(spoke + 1, ring - 1),
+        ])
+        shard.closeSubpath()
+        let middle = shard.boundingRect
+        var piece = context
+        piece.opacity = 1 - pow(progress, 3)
+        piece.translateBy(x: middle.midX, y: middle.midY + reach * 0.6 * progress * progress)
+        piece.rotate(by: .radians((random(spoke * 3 + ring, 16) - 0.5) * 1.4 * progress))
+        piece.scaleBy(x: 1 - 0.4 * progress, y: 1 - 0.4 * progress)
+        piece.translateBy(x: -middle.midX, y: -middle.midY)
+        piece.drawLayer { layer in
+          layer.clip(to: shard)
+          if let page {
+            layer.draw(page, in: CGRect(origin: .zero, size: size))
+          } else {
+            layer.fill(shard, with: .color(.white.opacity(0.14)))
+          }
+          layer.fill(shard, with: .color(.black.opacity(0.6 * progress)))
+        }
+        piece.stroke(shard, with: .color(.black.opacity(0.35)), lineWidth: 2.4)
+        piece.stroke(shard, with: .color(.white.opacity(0.9)), lineWidth: 1)
+      }
     }
   }
 
-  private struct Web {
-    let center: CGPoint
-    let reach: Double
-    let seed: Int
+  private func random(_ index: Int, _ salt: Int) -> Double { noise(index + seed, salt) }
 
-    var spokes: Int { 12 + Int(random(0, 9) * 6) }
+  private func vertex(_ spoke: Int, _ ring: Int) -> CGPoint {
+    guard ring >= 0 else { return center }
+    let spoke = spoke % spokes
+    let angle =
+      2 * .pi * (Double(spoke) + 0.6 * (random(spoke, 10) - 0.5)) / Double(spokes)
+      + (random(spoke * 17 + ring, 12) - 0.5) * 0.12
+    let radius = Glass.rings[ring] * reach * (0.8 + 0.4 * random(spoke * 31 + ring, 11))
+    return CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
+  }
 
-    func random(_ index: Int, _ salt: Int) -> Double { noise(index + seed, salt) }
+  private func kink(_ spoke: Int, _ ring: Int) -> CGPoint {
+    let start = vertex(spoke, ring - 1)
+    let end = vertex(spoke, ring)
+    let offset = (random((spoke % spokes) * 13 + ring, 17) - 0.5) * 0.35
+    return CGPoint(
+      x: (start.x + end.x) / 2 - (end.y - start.y) * offset,
+      y: (start.y + end.y) / 2 + (end.x - start.x) * offset)
+  }
 
-    func vertex(_ spoke: Int, _ ring: Int) -> CGPoint {
-      guard ring >= 0 else { return center }
-      let spoke = spoke % spokes
-      let angle =
-        2 * .pi * (Double(spoke) + 0.6 * (random(spoke, 10) - 0.5)) / Double(spokes)
-        + (random(spoke * 17 + ring, 12) - 0.5) * 0.12
-      let radius = Glass.rings[ring] * reach * (0.8 + 0.4 * random(spoke * 31 + ring, 11))
-      return CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
-    }
+  private func length(_ spoke: Int) -> Int {
+    let spoke = spoke % spokes
+    return Glass.rings.count - (random(spoke, 14) < 0.3 ? 1 + Int(random(spoke, 18) * 5) : 0)
+  }
 
-    func length(_ spoke: Int) -> Int {
-      let spoke = spoke % spokes
-      return Glass.rings.count - (random(spoke, 14) < 0.3 ? 1 + Int(random(spoke, 18) * 5) : 0)
-    }
-
-    func cracks(in context: inout GraphicsContext, extent: Double) {
-      var path = Path()
-      for spoke in 0..<spokes {
-        path.move(to: center)
-        for ring in 0..<length(spoke) {
-          let start = vertex(spoke, ring - 1)
-          let end = vertex(spoke, ring)
-          let from = distance(start)
-          let to = distance(end)
-          guard extent > from else { break }
-          let progress = min((extent - from) / (to - from), 1)
-          let kink = jag(start, end, salt: spoke * 13 + ring)
-          if progress > 0.5 { path.addLine(to: kink) }
-          let (anchor, share) = progress > 0.5 ? (kink, progress * 2 - 1) : (start, progress * 2)
-          let target = progress > 0.5 ? end : kink
-          path.addLine(
-            to: CGPoint(
-              x: anchor.x + (target.x - anchor.x) * share,
-              y: anchor.y + (target.y - anchor.y) * share))
-        }
-        for ring in 0..<min(length(spoke), length(spoke + 1))
-        where random(spoke * 7 + ring, 13) > 0.1 + 0.1 * Double(ring) {
-          let start = vertex(spoke, ring)
-          let end = vertex(spoke + 1, ring)
-          guard extent >= max(distance(start), distance(end)) else { continue }
-          path.move(to: start)
-          path.addQuadCurve(
-            to: end,
-            control: CGPoint(
-              x: center.x + ((start.x + end.x) / 2 - center.x) * 0.92,
-              y: center.y + ((start.y + end.y) / 2 - center.y) * 0.92))
-        }
-      }
-      context.stroke(path, with: .color(.black.opacity(0.35)), lineWidth: 2.4)
-      context.stroke(path, with: .color(.white.opacity(0.9)), lineWidth: 1)
-    }
-
-    func shards(in context: inout GraphicsContext, time: Double) {
-      for spoke in 0..<spokes {
-        for ring in 0..<min(length(spoke), length(spoke + 1)) {
-          let corners = [
-            vertex(spoke, ring - 1), vertex(spoke, ring), vertex(spoke + 1, ring),
-            vertex(spoke + 1, ring - 1),
-          ]
-          let delay = 0.25 * random(spoke * 5 + ring, 15) + 0.03 * Double(ring)
-          let progress = min(max((time - delay) / Glass.fall, 0), 1)
-          guard progress < 1 else { continue }
-          let middle = CGPoint(
-            x: corners.map(\.x).reduce(0, +) / 4, y: corners.map(\.y).reduce(0, +) / 4)
-          var shard = Path()
-          shard.addLines(corners)
-          shard.closeSubpath()
-          var piece = context
-          piece.opacity = 1 - progress
-          piece.translateBy(
-            x: middle.x + (middle.x - center.x) * 0.5 * progress,
-            y: middle.y + reach * 0.9 * progress * progress)
-          piece.rotate(by: .radians((random(spoke * 3 + ring, 16) - 0.5) * 3 * progress))
-          piece.scaleBy(x: 1 - 0.5 * progress, y: 1 - 0.5 * progress)
-          piece.translateBy(x: -middle.x, y: -middle.y)
-          piece.fill(shard, with: .color(.white.opacity(0.14)))
-          piece.stroke(shard, with: .color(.black.opacity(0.3)), lineWidth: 2.2)
-          piece.stroke(shard, with: .color(.white.opacity(0.9)), lineWidth: 1)
-        }
-      }
-    }
-
-    private func jag(_ start: CGPoint, _ end: CGPoint, salt: Int) -> CGPoint {
-      let offset = (random(salt, 17) - 0.5) * 0.35
-      return CGPoint(
-        x: (start.x + end.x) / 2 - (end.y - start.y) * offset,
-        y: (start.y + end.y) / 2 + (end.x - start.x) * offset)
-    }
-
-    private func distance(_ point: CGPoint) -> Double {
-      hypot(point.x - center.x, point.y - center.y)
-    }
+  private func distance(_ point: CGPoint) -> Double {
+    hypot(point.x - center.x, point.y - center.y)
   }
 }
 
 struct SlamShake: ViewModifier {
   @MainActor private static let timeline = KeyframeTimeline(initialValue: 0.0) {
     KeyframeTrack {
-      LinearKeyframe(0, duration: Slam.hits[0])
-      LinearKeyframe(7, duration: 0.04)
-      CubicKeyframe(-4, duration: 0.07)
-      CubicKeyframe(0, duration: 0.08)
-      LinearKeyframe(0, duration: Slam.hits[1] - Slam.hits[0] - 0.19)
-      LinearKeyframe(11, duration: 0.04)
-      CubicKeyframe(-6, duration: 0.07)
-      CubicKeyframe(0, duration: 0.08)
-      LinearKeyframe(0, duration: Slam.hits[2] - Slam.hits[1] - 0.19)
+      LinearKeyframe(0, duration: Slam.impact)
       LinearKeyframe(20, duration: 0.04)
       CubicKeyframe(-12, duration: 0.07)
       CubicKeyframe(7, duration: 0.07)
@@ -238,7 +260,7 @@ struct MergedStamp: View {
 }
 
 private struct StampScene: View {
-  private static let sweepStart = Slam.impact + 0.8
+  private static let sweepStart = Slam.reveal + 0.5
   private static let sweepDuration = 0.45
   private static let sparkleLife = 0.8
   static let duration = sweepStart + sweepDuration + sparkleLife

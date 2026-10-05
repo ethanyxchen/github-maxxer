@@ -2,28 +2,25 @@ import SceneKit
 import SwiftUI
 
 struct Swing {
+  static let entrance = 0.05
   var angle = 40.0
   var opacity = 0.0
 
   @MainActor static let timeline = KeyframeTimeline(initialValue: Swing()) {
     KeyframeTrack(\.angle) {
       MoveKeyframe(40)
-      CubicKeyframe(28, duration: 0.3)
-      LinearKeyframe(0, duration: Slam.hits[0] - 0.3, timingCurve: .easeIn)
-      CubicKeyframe(10, duration: 0.15)
-      CubicKeyframe(26, duration: 0.2)
-      LinearKeyframe(0, duration: Slam.hits[1] - Slam.hits[0] - 0.35, timingCurve: .easeIn)
-      CubicKeyframe(10, duration: 0.15)
-      CubicKeyframe(34, duration: 0.28)
-      LinearKeyframe(0, duration: Slam.hits[2] - Slam.hits[1] - 0.43, timingCurve: .easeIn)
-      CubicKeyframe(5, duration: 0.12)
-      LinearKeyframe(5, duration: 0.2)
-      CubicKeyframe(40, duration: 0.35)
+      CubicKeyframe(32, duration: 0.3)
+      LinearKeyframe(0, duration: Slam.impact - 0.3, timingCurve: .easeIn)
+      CubicKeyframe(5, duration: 0.1)
+      CubicKeyframe(0, duration: 0.1)
+      LinearKeyframe(0, duration: 0.15)
+      CubicKeyframe(40, duration: 0.3)
     }
     KeyframeTrack(\.opacity) {
       MoveKeyframe(0)
-      LinearKeyframe(1, duration: 0.12)
-      LinearKeyframe(1, duration: Slam.hits[2] + 0.3)
+      LinearKeyframe(0, duration: entrance)
+      LinearKeyframe(1, duration: 0.1)
+      LinearKeyframe(1, duration: Slam.impact + 0.25)
       LinearKeyframe(0, duration: 0.25)
     }
   }
