@@ -5,10 +5,17 @@ struct ActivityView: View {
   @Environment(AppModel.self) private var model
   let filter: ActivityFilter
   @State private var search = ""
+  @State private var page = 0
+
+  private var interval: DateInterval { Activity.page(page, endingAt: model.now) }
 
   private var days: [(day: Date, pulls: [MergedPullRequest])] {
+    let interval = interval
     let pulls = model.pullRequests(for: filter).filter { pull in
-      search.isEmpty || pull.title.localizedCaseInsensitiveContains(search)
+      guard !search.isEmpty else {
+        return pull.mergedAt >= interval.start && pull.mergedAt < interval.end
+      }
+      return pull.title.localizedCaseInsensitiveContains(search)
         || pull.repository.nameWithOwner.localizedCaseInsensitiveContains(search)
         || "#\(pull.number)".contains(search)
     }
@@ -18,15 +25,20 @@ struct ActivityView: View {
   }
 
   var body: some View {
-    ScrollView {
-      VStack(spacing: 0) {
-        progress.padding(.vertical, 32)
-        Rule()
-        log.padding(.vertical, 20)
+    ScrollViewReader { proxy in
+      ScrollView {
+        VStack(spacing: 0) {
+          progress.padding(.vertical, 32)
+          Rule()
+          if search.isEmpty { pager.padding(.top, 20).id("log") }
+          log.padding(.vertical, 20)
+          if search.isEmpty && !days.isEmpty { pager.padding(.bottom, 28) }
+        }
+        .padding(.horizontal, 40)
+        .frame(maxWidth: 960)
+        .frame(maxWidth: .infinity)
       }
-      .padding(.horizontal, 40)
-      .frame(maxWidth: 960)
-      .frame(maxWidth: .infinity)
+      .onChange(of: page) { proxy.scrollTo("log", anchor: .top) }
     }
     .background(Palette.panel)
     .foregroundStyle(Palette.ink)
@@ -96,7 +108,7 @@ struct ActivityView: View {
     if days.isEmpty {
       if search.isEmpty {
         ContentUnavailableView(
-          "No merges yet", systemImage: "arrow.triangle.merge",
+          "No merges in these 7 days", systemImage: "arrow.triangle.merge",
           description: Text("PRs you author appear here after they merge in a tracked repository."))
       } else {
         ContentUnavailableView.search(text: search)
@@ -114,6 +126,37 @@ struct ActivityView: View {
         }
       }
     }
+  }
+
+  private var pager: some View {
+    let last = interval.end.addingTimeInterval(-1)
+    let range =
+      "\(interval.start.formatted(.dateTime.day().month(.abbreviated))) – \(last.formatted(.dateTime.day().month(.abbreviated)))"
+    return HStack {
+      Button {
+        page += 1
+      } label: {
+        Label("Older", systemImage: "chevron.left")
+      }
+      .disabled(page == Activity.pageCount - 1)
+      .opacity(page == Activity.pageCount - 1 ? 0.3 : 1)
+      Spacer()
+      Text(page == 0 ? "Last 7 days · \(range)" : range).font(.readout(12))
+        .foregroundStyle(Palette.secondary)
+      Spacer()
+      Button {
+        page -= 1
+      } label: {
+        HStack(spacing: 4) {
+          Text("Newer")
+          Image(systemName: "chevron.right")
+        }
+      }
+      .disabled(page == 0)
+      .opacity(page == 0 ? 0.3 : 1)
+    }
+    .buttonStyle(.borderless)
+    .font(.system(size: 12, weight: .medium, design: .monospaced))
   }
 
   private func dayHeader(_ day: Date, count: Int) -> some View {

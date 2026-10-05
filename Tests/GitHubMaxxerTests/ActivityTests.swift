@@ -165,6 +165,18 @@ struct ActivityTests {
     #expect(weeks.last?[4]?.day == calendar.startOfDay(for: now))
   }
 
+  @Test func pagesStepBackSevenLocalDaysAndCoverHistory() {
+    let now = date("2026-10-02T12:00:00Z")
+    let latest = Activity.page(0, endingAt: now, calendar: calendar)
+    #expect(latest.start == date("2026-09-25T23:00:00Z"))
+    #expect(latest.end == date("2026-10-02T23:00:00Z"))
+    #expect(latest.contains(now))
+    let previous = Activity.page(1, endingAt: now, calendar: calendar)
+    #expect(previous.end == latest.start)
+    let oldest = Activity.page(Activity.pageCount - 1, endingAt: now, calendar: calendar)
+    #expect(oldest.start <= Activity.historyInterval(endingAt: now, calendar: calendar).start)
+  }
+
   @Test func progressCapsAtOneAndRetainsExcessCount() {
     #expect(GoalProgress(count: 7, target: 5).fraction == 1)
     #expect(GoalProgress(count: 7, target: 5).remaining == 0)

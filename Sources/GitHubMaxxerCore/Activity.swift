@@ -139,11 +139,24 @@ public enum ActivityFilter: Hashable, Sendable {
 }
 
 public enum Activity {
+  public static let historyDays = 90
+  public static let pageDays = 7
+  public static let pageCount = (historyDays + pageDays - 1) / pageDays
+
   public static func historyInterval(endingAt now: Date, calendar: Calendar = .current)
     -> DateInterval
   {
-    let start = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -89, to: now)!)
+    let start = calendar.startOfDay(
+      for: calendar.date(byAdding: .day, value: 1 - historyDays, to: now)!)
     return DateInterval(start: start, end: now)
+  }
+
+  public static func page(_ index: Int, endingAt now: Date, calendar: Calendar = .current)
+    -> DateInterval
+  {
+    let end = calendar.date(
+      byAdding: .day, value: 1 - index * pageDays, to: calendar.startOfDay(for: now))!
+    return DateInterval(start: calendar.date(byAdding: .day, value: -pageDays, to: end)!, end: end)
   }
 
   public static func dailyCounts(
