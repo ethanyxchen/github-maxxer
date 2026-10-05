@@ -59,11 +59,13 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 ## How activity is counted
 
 - Edit the daily PR target in **Targets & Accounts**. Weekly and monthly targets update automatically using 5 days per week and 20 days per month: a daily target of 3 gives weekly and monthly targets of 15 and 60.
-- Click **Today**, **This week**, or **This month** to see the merged PRs counted in that tile. Each list shows titles, repository, PR number, visibility, and merge time; scroll to see more than five rows.
+- The activity view leads with today's count against your target, then week and month meters. Below them, every merged PR from the last 90 days is listed by day with that day's count against the daily target. Search filters the list by title, repository, or PR number.
+- While a week or month target is unmet, a marker shows where you should be after the weekdays elapsed so far, and the note says how far ahead or behind pace you are.
 - Targets count PRs **you authored**, using the time they were **merged**, including merges performed by someone else. Closed but unmerged PRs do not count.
 - Daily and monthly targets use your Mac's time zone. Weeks start Monday.
 - **Repositories** controls which repositories count toward PR targets. Selecting an owner includes its current and future accessible repositories. Individual selections use GitHub repository IDs, so renaming a repository preserves its selection.
-- The **Activity by organisation** table on Overview shows personal and individual organisation PR counts for today, this week, this month, and the last 90 days. Select a row or use the **Activity** menu to filter target progress and recent merges; the selection carries into Pull Requests. GitHub's contribution calendar appears in the all-activity view because its account-wide counts cannot be split by organization.
+- The sidebar lists **All activity**, **Personal**, and each organisation. Selecting one filters target progress and the merge list to that owner's repositories.
+- **History** shows the last 90 days as one square per day: grey below the daily target, green when reached, and deep green when exceeded. Switch to **GitHub** to see GitHub's contribution calendar instead.
 - The contribution calendar comes directly from GitHub and retains GitHub's counts and intensity levels. It includes account-wide commits, issues, reviews, and opened PRs; its data is independent of the repositories selected for PR targets.
 - Merged PR history covers the last 90 calendar days. Large searches are split into smaller date ranges to avoid GitHub's 1,000-result search limit.
 

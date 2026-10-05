@@ -1,21 +1,25 @@
 import GitHubMaxxerCore
 import SwiftUI
 
-private enum Destination: String, CaseIterable, Identifiable {
-  case overview, pullRequests, repositories, settings
-  var id: String { rawValue }
+private enum Destination: Hashable {
+  case activity(ActivityFilter)
+  case history, repositories, settings
+
   var title: String {
     switch self {
-    case .overview: "Overview"
-    case .pullRequests: "Pull Requests"
+    case .activity(let filter): filter.title
+    case .history: "History"
     case .repositories: "Repositories"
     case .settings: "Targets & Accounts"
     }
   }
+
   var symbol: String {
     switch self {
-    case .overview: "chart.bar.xaxis"
-    case .pullRequests: "arrow.triangle.pull"
+    case .activity(.all): "square.stack"
+    case .activity(.personal): "person"
+    case .activity(.organization): "building.2"
+    case .history: "calendar"
     case .repositories: "folder"
     case .settings: "slider.horizontal.3"
     }
@@ -30,16 +34,21 @@ struct ConnectionDraft: Identifiable {
 struct RootView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.scenePhase) private var scenePhase
-  @State private var selection: Destination? = .overview
-  @State private var activityFilter: ActivityFilter = .all
+  @State private var selection: Destination? = .activity(.all)
   @State private var connectionDraft: ConnectionDraft?
 
   var body: some View {
     NavigationSplitView {
       List(selection: $selection) {
         Section("Activity") {
-          navigationRow(.overview)
-          navigationRow(.pullRequests)
+          navigationRow(.activity(.all))
+          navigationRow(.activity(.personal))
+          ForEach(model.organizations, id: \.self) { owner in
+            navigationRow(.activity(.organization(owner)))
+          }
+        }
+        Section("Insights") {
+          navigationRow(.history)
         }
         Section("Manage") {
           navigationRow(.repositories)
@@ -47,6 +56,7 @@ struct RootView: View {
         }
       }
       .listStyle(.sidebar)
+      .tint(Palette.over)
       .background(SidebarResizeBehavior())
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
       .safeAreaInset(edge: .bottom) {
@@ -79,23 +89,10 @@ struct RootView: View {
         }
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
-      .navigationTitle((selection ?? .overview).title)
+      .navigationTitle((selection ?? .activity(.all)).title)
       .navigationSubtitle(subtitle)
       .toolbarBackground(.hidden, for: .windowToolbar)
       .toolbar {
-        if selection == .overview || selection == .pullRequests {
-          ToolbarItem {
-            Picker("Activity", selection: $activityFilter) {
-              Text("All activity").tag(ActivityFilter.all)
-              Text("Personal").tag(ActivityFilter.personal)
-              ForEach(model.organizations, id: \.self) { owner in
-                Text(owner).tag(ActivityFilter.organization(owner))
-              }
-            }
-            .frame(width: 180)
-            .help("Show PR activity by repository owner")
-          }
-        }
         if model.isRefreshing {
           ToolbarItem { ProgressView().controlSize(.small).help("Refreshing GitHub activity") }
         }
@@ -122,8 +119,8 @@ struct RootView: View {
       if phase == .active { Task { await model.refresh() } }
     }
     .onChange(of: model.organizations) { _, organizations in
-      if case .organization(let owner) = activityFilter, !organizations.contains(owner) {
-        activityFilter = .all
+      if case .activity(.organization(let owner)) = selection, !organizations.contains(owner) {
+        selection = .activity(.all)
       }
     }
     .onAppear { model.startRefreshing() }
@@ -131,16 +128,12 @@ struct RootView: View {
   }
 
   private func navigationRow(_ destination: Destination) -> some View {
-    let today = model.progress(for: .day)
-    return Label {
+    Label {
       Text(destination.title)
     } icon: {
       Image(systemName: destination.symbol).foregroundStyle(Palette.secondary)
     }
     .tag(destination)
-    .badge(
-      destination == .overview && !model.connections.isEmpty
-        ? Text("\(today.count)/\(today.target)") : nil)
   }
 
   private var subtitle: String {
@@ -152,14 +145,18 @@ struct RootView: View {
 
   @ViewBuilder
   private var content: some View {
-    switch selection ?? .overview {
-    case .overview:
+    switch selection ?? .activity(.all) {
+    case .activity(let filter):
       if model.connections.isEmpty {
         WelcomeView { connectionDraft = ConnectionDraft() }
       } else {
-        OverviewView(filter: $activityFilter) { selection = .pullRequests }
+        ActivityView(filter: filter).id(filter)
       }
-    case .pullRequests: PullRequestsView(filter: activityFilter)
+    case .history:
+      ScrollView {
+        RecordView().padding(40).frame(maxWidth: 960, alignment: .leading)
+      }
+      .background(Palette.panel)
     case .repositories: RepositoriesView()
     case .settings:
       SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }

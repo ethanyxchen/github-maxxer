@@ -3,23 +3,20 @@ import SwiftUI
 
 struct RecordView: View {
   @Environment(AppModel.self) private var model
-  let filter: ActivityFilter
   @State private var showsGitHub = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       HStack {
-        Eyebrow(showsGitHub && filter == .all ? "GitHub · last year" : "Last 90 days")
+        Eyebrow(showsGitHub ? "GitHub · last year" : "Last 90 days")
         Spacer()
-        if filter == .all {
-          Picker("Calendar", selection: $showsGitHub) {
-            Text("Merged PRs").tag(false)
-            Text("GitHub").tag(true)
-          }
-          .pickerStyle(.segmented).labelsHidden().fixedSize()
+        Picker("Calendar", selection: $showsGitHub) {
+          Text("Merged PRs").tag(false)
+          Text("GitHub").tag(true)
         }
+        .pickerStyle(.segmented).labelsHidden().fixedSize()
       }
-      if showsGitHub && filter == .all {
+      if showsGitHub {
         ContributionGraphView()
       } else {
         record
@@ -28,7 +25,7 @@ struct RecordView: View {
   }
 
   private var record: some View {
-    let days = model.dailyCounts(for: filter)
+    let days = model.dailyCounts(for: .all)
     let target = model.goals.daily
     let today = Calendar.current.startOfDay(for: model.now)
     let workdays = days.filter { !Calendar.current.isDateInWeekend($0.day) }
