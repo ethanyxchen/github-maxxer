@@ -64,7 +64,7 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 - Targets count PRs **you authored**, using the time they were **merged**, including merges performed by someone else. Closed but unmerged PRs do not count.
 - Daily and monthly targets use your Mac's time zone. Weeks start Monday.
 - **Repositories** controls which repositories count toward PR targets. Choosing an organisation or account under **Count repositories from** includes all of its current and future accessible repositories. Only PRs you author ever count. Individual selections use GitHub repository IDs, so renaming a repository preserves its selection.
-- The sidebar lists **All activity**, **Personal**, and each organisation. Selecting one filters target progress and the merge list to that owner's repositories.
+- The sidebar lists **All activity**, **Personal**, and each organisation. Selecting one filters target progress and the merge list to that owner's repositories. Once the sidebar has focus, the arrow keys move between items and typing a name jumps to it.
 - Right-click an organisation to pin it to the top, rename it, or remove it from the sidebar. Names and pins only change how Hammertime shows the organisation, and a removed organisation still counts toward **All activity**. Bring removed organisations back from **Show in sidebar** on **Repositories**.
 - Merged PR history covers the last 90 calendar days. Large searches are split into smaller date ranges to avoid GitHub's 1,000-result search limit.
 
