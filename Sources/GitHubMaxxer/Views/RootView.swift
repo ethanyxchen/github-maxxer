@@ -72,7 +72,6 @@ struct RootView: View {
           ErrorBanner(message: error, additionalCount: model.errors.count - 1)
         }
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
-          .modifier(SlamShake(landing: model.landing))
       }
       .navigationTitle(title(for: selection))
       .toolbar(removing: .title)
