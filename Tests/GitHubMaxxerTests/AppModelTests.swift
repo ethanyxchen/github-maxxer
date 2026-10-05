@@ -213,26 +213,6 @@ struct AppModelTests {
     #expect(AppModel(stateURL: url, credentials: store).connections.isEmpty)
   }
 
-  @Test func onlyExplicitRefreshAllowsCredentialInteraction() async throws {
-    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    defer { try? FileManager.default.removeItem(at: directory) }
-    let url = directory.appending(path: "state.json")
-    let connection = PreviewData.connections(now: .now)[0]
-    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
-    let store = TestCredentials()
-    try store.save("test-credential", for: connection.id)
-    let configuration = URLSessionConfiguration.ephemeral
-    configuration.protocolClasses = [UnavailableProtocol.self]
-    let model = AppModel(
-      stateURL: url, credentials: store, session: URLSession(configuration: configuration))
-
-    await model.refresh()
-    await model.refresh(authorizeKeychain: true)
-
-    #expect(store.readInteractions == [false, true])
-  }
-
   @Test func failedRefreshPreservesSnapshotAndReportsError() async throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -263,14 +243,12 @@ struct AppModelTests {
 @MainActor
 private final class TestCredentials: CredentialStorage {
   var tokens: [UUID: String] = [:]
-  var readInteractions: [Bool] = []
 
   func save(_ token: String, for id: UUID) throws {
     tokens[id] = token
   }
 
-  func read(for id: UUID, allowInteraction: Bool = false) throws -> String {
-    readInteractions.append(allowInteraction)
+  func read(for id: UUID) throws -> String {
     guard let token = tokens[id] else { throw CredentialError.invalidData }
     return token
   }

@@ -81,7 +81,7 @@ struct RootView: View {
         ToolbarSpacer(.flexible)
         ToolbarItem(placement: .primaryAction) {
           Button {
-            Task { await model.refresh(authorizeKeychain: true) }
+            Task { await model.refresh() }
           } label: {
             if model.isRefreshing {
               ProgressView().controlSize(.small)

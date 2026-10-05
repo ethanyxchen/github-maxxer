@@ -23,7 +23,7 @@ CODESIGN_IDENTITY='Apple Development: your name (identity)' ./scripts/build-app.
 
 List available identities with `security find-identity -v -p codesigning`. The first build with a new identity may need Keychain approval. Reconnect the GitHub account to save its credential with the current app's access description. Distributing the app to other Macs requires Developer ID signing and notarization.
 
-Self-signed and ad hoc builds (`CODESIGN_IDENTITY=-`) do not preserve Keychain approval across rebuilds because their code-hash partition changes. Automatic refresh reports missing authorization inside the app; only an explicit **Refresh** permits a Keychain authorization dialog.
+Self-signed and ad hoc builds (`CODESIGN_IDENTITY=-`) do not preserve Keychain approval across rebuilds because their code-hash partition changes.
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 
