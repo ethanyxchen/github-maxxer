@@ -5,6 +5,8 @@ import SwiftUI
 @main
 struct GitHubMaxxerApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+  @FocusedBinding(\.destination) private var destination
+  @FocusedValue(\.searchFocus) private var searchFocus
   @State private var model = AppModel(
     preview: ProcessInfo.processInfo.arguments.contains("--preview")
       || ProcessInfo.processInfo.arguments.contains("--preview-dark"))
@@ -21,6 +23,30 @@ struct GitHubMaxxerApp: App {
     .defaultSize(width: 1120, height: 800)
     .commands {
       CommandGroup(replacing: .newItem) {}
+      CommandGroup(replacing: .sidebar) {
+        Button("Toggle Sidebar") {
+          NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+        }
+        .keyboardShortcut("s", modifiers: .command)
+        Divider()
+        Button("Previous Page") { destination = destination?.step(-1, through: model.activities) }
+          .keyboardShortcut("[", modifiers: [.command, .shift])
+          .disabled(destination == nil)
+        Button("Next Page") { destination = destination?.step(1, through: model.activities) }
+          .keyboardShortcut("]", modifiers: [.command, .shift])
+          .disabled(destination == nil)
+        Divider()
+        ForEach(Array(model.activities.prefix(9).enumerated()), id: \.element) { index, filter in
+          Button(model.title(for: filter)) { destination = .activity(filter) }
+            .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+            .disabled(destination == nil)
+        }
+      }
+      CommandGroup(after: .textEditing) {
+        Button("Find") { searchFocus?.wrappedValue = true }
+          .keyboardShortcut("f", modifiers: .command)
+          .disabled(searchFocus == nil)
+      }
       CommandGroup(after: .appInfo) {
         Link(
           "Hammertime on GitHub",
