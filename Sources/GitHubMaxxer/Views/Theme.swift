@@ -11,17 +11,17 @@ enum Palette {
   static let empty = dynamic(light: 0xD2D5CF, dark: 0x292D29)
   static let reached = dynamic(light: 0x3FAE62, dark: 0x2F9E55)
   static let over = dynamic(light: 0x0E6B35, dark: 0x7CF0A2)
-  private static let accents = [
-    dynamic(light: 0x3D6FD9, dark: 0x6E9BFF),
-    dynamic(light: 0xD9822B, dark: 0xF0A050),
-    dynamic(light: 0x8A5CD1, dark: 0xB28CFF),
-    dynamic(light: 0x1C9A9A, dark: 0x4FD1D1),
-    dynamic(light: 0xD0476E, dark: 0xFF7A9C),
-    dynamic(light: 0xA88A1E, dark: 0xD9BC4A),
-  ]
 
-  static func share(_ index: Int) -> Color {
-    index == 0 ? ink : accents[(index - 1) % accents.count]
+  static func colour(_ colour: WorkspaceColour?) -> Color {
+    switch colour {
+    case nil: ink
+    case .terracotta: dynamic(light: 0xB8613A, dark: 0xE08A60)
+    case .ochre: dynamic(light: 0xB88A1F, dark: 0xE0B44A)
+    case .plum: dynamic(light: 0x84507A, dark: 0xC188B5)
+    case .slate: dynamic(light: 0x587089, dark: 0x8FA8C2)
+    case .rosewood: dynamic(light: 0xA85A62, dark: 0xD88A92)
+    case .umber: dynamic(light: 0x7A6650, dark: 0xC2A88A)
+    }
   }
 
   private static func dynamic(light: UInt32, dark: UInt32) -> Color {
@@ -101,18 +101,19 @@ struct SegmentMeter: View {
   let count: Int
   let target: Int
   var pace: Int?
+  var tint = Palette.ink
   var shares: [MeterShare] = []
   var height: CGFloat = 18
 
   private var scale: Int { max(target, count) }
   private var segments: Int { max(1, min(scale, 60)) }
   private var perSegment: Double { Double(scale) / Double(segments) }
-  private var isShared: Bool { shares.count > 1 }
+  private var isShared: Bool { !shares.isEmpty }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       bar
-      if isShared { legend }
+      if shares.count > 1 { legend }
     }
     .accessibilityHidden(true)
   }
@@ -156,7 +157,7 @@ struct SegmentMeter: View {
     guard Double(count) >= end - 0.001 else { return Palette.empty }
     if isShared { return shareColor(at: end - perSegment / 2) }
     if end > Double(target) + 0.001 { return Palette.over }
-    return count >= target ? Palette.reached : Palette.ink
+    return count >= target ? Palette.reached : tint
   }
 
   private func shareColor(at position: Double) -> Color {

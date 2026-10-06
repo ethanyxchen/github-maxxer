@@ -67,11 +67,12 @@ struct ActivityView: View {
 
   private func shares(_ period: GoalPeriod, in pulls: [MergedPullRequest]) -> [MeterShare] {
     guard filter == .all else { return [] }
-    let workspaces = model.workspaces.enumerated().map { index, workspace in
+    let workspaces = model.workspaces.map { workspace in
       MeterShare(
         id: workspace, title: model.title(for: workspace),
         count: period.count(in: model.pullRequests(for: workspace), now: model.now),
-        target: model.goals(for: workspace)[period], color: Palette.share(index))
+        target: model.goals(for: workspace)[period],
+        color: Palette.colour(model.colour(for: workspace)))
     }
     let other = period.count(in: pulls, now: model.now) - workspaces.map(\.count).reduce(0, +)
     return
@@ -92,7 +93,9 @@ struct ActivityView: View {
         Text(padded(progress.count)).font(.readout(64))
         Text("/ \(padded(progress.target))").font(.readout(22)).foregroundStyle(Palette.secondary)
       }
-      SegmentMeter(count: progress.count, target: progress.target, shares: shares)
+      SegmentMeter(
+        count: progress.count, target: progress.target,
+        tint: Palette.colour(model.colour(for: filter)), shares: shares)
       HStack(spacing: 8) {
         Lamp(isOn: progress.isComplete)
         Text(status(progress)).font(.system(size: 12, design: .monospaced))
@@ -118,7 +121,7 @@ struct ActivityView: View {
       }
       SegmentMeter(
         count: progress.count, target: progress.target, pace: pace(period, progress),
-        shares: shares, height: 14)
+        tint: Palette.colour(model.colour(for: filter)), shares: shares, height: 14)
       Text(note(period, progress)).font(.system(size: 11, design: .monospaced))
         .foregroundStyle(Palette.secondary).padding(.top, 4)
     }

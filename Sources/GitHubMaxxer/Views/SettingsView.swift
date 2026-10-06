@@ -14,7 +14,7 @@ struct SettingsView: View {
         SettingsSection(
           "Daily merged PR targets",
           footer:
-            "Set a target for Personal and each organisation, or 0 for none. All activity adds them together. Weekly and monthly targets follow the daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
+            "Set a target for Personal and each organisation, or 0 for none. All activity adds them together. Right-click Personal or an organisation in the sidebar to change its colour. Weekly and monthly targets follow the daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
         ) {
           ForEach(model.workspaces, id: \.self) { TargetRow(workspace: $0) }
           LabeledContent(ActivityFilter.all.title) {
@@ -180,6 +180,8 @@ private struct TargetRow: View {
   var body: some View {
     let label = "\(model.title(for: workspace)) daily target"
     HStack {
+      RoundedRectangle(cornerRadius: 2).fill(Palette.colour(model.colour(for: workspace)))
+        .frame(width: 10, height: 10).accessibilityHidden(true)
       Text(model.title(for: workspace))
       Spacer()
       TextField("Pull requests", text: $text)

@@ -39,13 +39,50 @@ struct Landing: Equatable {
   let reveal: Date
 }
 
-struct Targets: Codable {
-  var personal = Goals()
-  var organizations: [String: Goals] = [:]
+enum WorkspaceColour: String, CaseIterable, Codable, Identifiable {
+  case terracotta, ochre, plum, slate, rosewood, umber
+
+  var id: String { rawValue }
+  var title: String { rawValue.capitalized }
+}
+
+struct Workspace: Codable {
+  var goals = Goals()
+  var colour = WorkspaceColour.terracotta
+}
+
+struct Workspaces: Codable {
+  var personal = Workspace()
+  var organizations: [String: Workspace] = [:]
+
+  subscript(filter: ActivityFilter) -> Workspace? {
+    get {
+      switch filter {
+      case .all: nil
+      case .personal: personal
+      case .organization(let owner): organizations[OrganizationPreferences.key(owner)]
+      }
+    }
+    set {
+      guard let newValue else { return }
+      switch filter {
+      case .all: return
+      case .personal: personal = newValue
+      case .organization(let owner): organizations[OrganizationPreferences.key(owner)] = newValue
+      }
+    }
+  }
+
+  var unusedColour: WorkspaceColour {
+    let used = [personal.colour] + organizations.values.map(\.colour)
+    return WorkspaceColour.allCases.min { colour, other in
+      used.count { $0 == colour } < used.count { $0 == other }
+    }!
+  }
 }
 
 private struct SavedState: Codable {
-  var targets = Targets()
+  var workspaces = Workspaces()
   var connections: [AccountConnection] = []
   var organizations = OrganizationPreferences()
 }
@@ -53,7 +90,7 @@ private struct SavedState: Codable {
 extension SavedState {
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    targets = try container.decodeIfPresent(Targets.self, forKey: .targets) ?? Targets()
+    workspaces = try container.decodeIfPresent(Workspaces.self, forKey: .workspaces) ?? Workspaces()
     connections = try container.decode([AccountConnection].self, forKey: .connections)
     organizations =
       try container.decodeIfPresent(OrganizationPreferences.self, forKey: .organizations)
@@ -65,7 +102,7 @@ extension SavedState {
 @Observable
 final class AppModel {
   private(set) var connections: [AccountConnection] = []
-  private(set) var targets = Targets()
+  private(set) var workspaceSettings = Workspaces()
   private(set) var organizationPreferences = OrganizationPreferences()
   private(set) var isRefreshing = false
   private(set) var isConnecting = false
@@ -94,14 +131,16 @@ final class AppModel {
       .appending(path: "state.json")
     if preview {
       connections = PreviewData.connections(now: now)
-      targets = Targets(personal: Goals(daily: 2), organizations: ["northstar": Goals(daily: 3)])
+      workspaceSettings.personal.goals = Goals(daily: 2)
+      workspaceSettings.organizations["northstar"] = Workspace(
+        goals: Goals(daily: 3), colour: .slate)
     } else if FileManager.default.fileExists(atPath: self.stateURL.path) {
       do {
         let state = try JSONDecoder().decode(SavedState.self, from: Data(contentsOf: self.stateURL))
-        targets = state.targets
+        workspaceSettings = state.workspaces
         connections = state.connections
         organizationPreferences = state.organizations
-        pruneForgottenOrganizations()
+        reconcileOrganizations()
       } catch {
         storageError = "Saved activity could not be loaded. \(error.localizedDescription)"
       }
@@ -152,20 +191,21 @@ final class AppModel {
   func goals(for filter: ActivityFilter) -> Goals {
     switch filter {
     case .all: Goals(daily: workspaces.map { goals(for: $0).daily }.reduce(0, +))
-    case .personal: targets.personal
-    case .organization(let owner):
-      targets.organizations[OrganizationPreferences.key(owner)] ?? Goals()
+    case .personal, .organization: workspaceSettings[filter]?.goals ?? Goals()
     }
   }
 
+  func colour(for filter: ActivityFilter) -> WorkspaceColour? {
+    workspaceSettings[filter]?.colour
+  }
+
   func setDailyGoal(_ value: Int, for filter: ActivityFilter) {
-    let goals = Goals(clamping: value)
-    switch filter {
-    case .all: return
-    case .personal: targets.personal = goals
-    case .organization(let owner):
-      targets.organizations[OrganizationPreferences.key(owner)] = goals
-    }
+    workspaceSettings[filter]?.goals = Goals(clamping: value)
+    persist()
+  }
+
+  func setColour(_ colour: WorkspaceColour, for filter: ActivityFilter) {
+    workspaceSettings[filter]?.colour = colour
     persist()
   }
 
@@ -354,25 +394,32 @@ final class AppModel {
     }
   }
 
-  private func pruneForgottenOrganizations() {
+  private func reconcileOrganizations() {
     guard !connections.isEmpty else { return }
     let owners = connections.flatMap {
       $0.snapshot.repositories + $0.snapshot.pullRequests.map(\.repository)
     }
     let keys = Set(owners.map { OrganizationPreferences.key($0.owner) })
     organizationPreferences = organizationPreferences.keeping(keys)
-    targets.organizations = targets.organizations.filter { keys.contains($0.key) }
+    workspaceSettings.organizations = workspaceSettings.organizations.filter {
+      keys.contains($0.key)
+    }
+    for organization in organizations where workspaceSettings[.organization(organization)] == nil {
+      workspaceSettings.organizations[OrganizationPreferences.key(organization)] = Workspace(
+        colour: workspaceSettings.unusedColour)
+    }
   }
 
   private func persist() {
     guard !isPreview else { return }
-    pruneForgottenOrganizations()
+    reconcileOrganizations()
     do {
       let directory = stateURL.deletingLastPathComponent()
       try FileManager.default.createDirectory(
         at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
       let state = SavedState(
-        targets: targets, connections: connections, organizations: organizationPreferences)
+        workspaces: workspaceSettings, connections: connections,
+        organizations: organizationPreferences)
       try JSONEncoder().encode(state).write(to: stateURL, options: .atomic)
       try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: stateURL.path)
       storageError = nil

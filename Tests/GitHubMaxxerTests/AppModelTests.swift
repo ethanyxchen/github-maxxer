@@ -49,8 +49,37 @@ struct AppModelTests {
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.goals(for: .personal) == Goals(daily: 3))
     let state = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
-    let personal = (state["targets"] as! [String: Any])["personal"] as! [String: Any]
-    #expect(Set(personal.keys) == ["daily"])
+    let personal = (state["workspaces"] as! [String: Any])["personal"] as! [String: Any]
+    #expect(Set((personal["goals"] as! [String: Any]).keys) == ["daily"])
+  }
+
+  @Test func organisationsKeepTheColourTheyFirstReceive() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let repositories = ["beta/app", "acme/app"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
+    }
+    let connection = AccountConnection(
+      id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
+      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [], fetchedAt: .now))
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
+
+    #expect(model.colour(for: .personal) == .terracotta)
+    #expect(model.colour(for: .organization("acme")) == .ochre)
+    #expect(model.colour(for: .organization("beta")) == .plum)
+    #expect(model.colour(for: .all) == nil)
+
+    model.setColour(.slate, for: .organization("ACME"))
+    model.setPinned(true, organization: "beta")
+
+    let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
+    #expect(reloaded.colour(for: .organization("acme")) == .slate)
+    #expect(reloaded.colour(for: .organization("beta")) == .plum)
+    #expect(reloaded.colour(for: .personal) == .terracotta)
   }
 
   @Test func allActivityTargetSumsEachOrganisationsTarget() throws {
