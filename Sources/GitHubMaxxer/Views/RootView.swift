@@ -345,8 +345,9 @@ private struct WelcomeView: View {
 
   var body: some View {
     VStack(spacing: 22) {
-      Image(systemName: "arrow.triangle.pull")
-        .font(.system(size: 46, weight: .light))
+      Image(nsImage: .mark)
+        .renderingMode(.template).resizable()
+        .frame(width: 46, height: 46)
         .foregroundStyle(Palette.reached)
       VStack(spacing: 9) {
         Text("Keep track of what you merge")

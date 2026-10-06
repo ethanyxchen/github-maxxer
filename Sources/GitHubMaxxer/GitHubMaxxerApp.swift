@@ -60,7 +60,11 @@ struct GitHubMaxxerApp: App {
       MenuBarView().environment(model)
     } label: {
       let today = model.progress(for: .day)
-      Image(systemName: model.isReached(.day) ? "checkmark.circle.fill" : "arrow.triangle.pull")
+      if model.isReached(.day) {
+        Image(systemName: "checkmark.circle.fill")
+      } else {
+        Image(nsImage: .mark)
+      }
       Text("\(today.count)/\(today.target)")
     }
   }
@@ -121,4 +125,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+}
+
+extension NSImage {
+  static let mark: NSImage = {
+    let image = Bundle.module.image(forResource: "Mark")!
+    image.size = NSSize(width: 18, height: 18)
+    image.isTemplate = true
+    return image
+  }()
 }

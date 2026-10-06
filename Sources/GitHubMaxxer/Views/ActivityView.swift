@@ -138,9 +138,15 @@ struct ActivityView: View {
   private func log(_ days: [(day: Date, pulls: [MergedPullRequest])]) -> some View {
     if days.isEmpty {
       if search.isEmpty {
-        ContentUnavailableView(
-          "No merges in these 7 days", systemImage: "arrow.triangle.merge",
-          description: Text("PRs you author appear here after they merge in a tracked repository."))
+        ContentUnavailableView {
+          Label {
+            Text("No merges in these 7 days")
+          } icon: {
+            Image(nsImage: .mark).renderingMode(.template).resizable().scaledToFit()
+          }
+        } description: {
+          Text("PRs you author appear here after they merge in a tracked repository.")
+        }
       } else {
         ContentUnavailableView.search(text: search)
       }
