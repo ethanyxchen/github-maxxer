@@ -1,4 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-swift build -c release --scratch-path .build/pre-commit -Xswiftc -warnings-as-errors
+cache="$PWD/.build/pre-commit"
+snapshot="$(mktemp -d)"
+trap 'rm -rf "$snapshot"' EXIT
+git checkout-index --all --prefix="$snapshot/"
+mkdir -p "$cache/source"
+rsync --archive --checksum --delete "$snapshot/" "$cache/source/"
+swift build -c release --package-path "$cache/source" --scratch-path "$cache/scratch" \
+  -Xswiftc -warnings-as-errors
