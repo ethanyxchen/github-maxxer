@@ -27,7 +27,7 @@ Self-signed and ad hoc builds (`CODESIGN_IDENTITY=-`) do not preserve Keychain a
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 
-To replay the merge celebration, run `./scripts/replay-slam.sh`. It quits Hammertime, forgets each connected account's most recently merged PR, and relaunches the app so the next refresh lands it again.
+To replay the merge celebration, run `./scripts/replay-slam.sh`. It quits Hammertime, forgets the most recently merged PR, and relaunches the app in the foreground so the next refresh lands it again and the slam plays in the window. Pass `--banner` to relaunch it in the background instead, so the slam plays on the floating card.
 
 ## Connect GitHub
 

@@ -8,6 +8,7 @@ final class MergeBanner {
   fileprivate static let stage = CGSize(width: 640, height: 420)
   private static let margin = 12.0
   private static let lifetime = 8.0
+  fileprivate static let exit = 0.35
   private let model: AppModel
   private let panel = NSPanel(
     contentRect: CGRect(origin: .zero, size: stage), styleMask: [.borderless, .nonactivatingPanel],
@@ -42,7 +43,10 @@ final class MergeBanner {
   private func present(_ banner: Landing?) {
     guard let banner else {
       shown = nil
-      panel.orderOut(nil)
+      Task {
+        try? await Task.sleep(for: .seconds(Self.exit))
+        if shown == nil { panel.orderOut(nil) }
+      }
       return
     }
     let pointer = NSEvent.mouseLocation
@@ -95,10 +99,15 @@ private struct BannerStage: View {
           .position(
             x: MergeBanner.stage.width / 2, y: MergeBanner.stage.height * Slam.impactHeight
           )
+          .transition(
+            .asymmetric(
+              insertion: .identity, removal: .move(edge: .trailing).combined(with: .opacity)))
         HammerSwing(landing: banner)
       }
     }
     .frame(width: MergeBanner.stage.width, height: MergeBanner.stage.height)
+    .animation(
+      model.banner == nil ? .easeIn(duration: MergeBanner.exit) : nil, value: model.banner == nil)
   }
 }
 
@@ -134,8 +143,8 @@ private struct BannerCard: View {
 
   private var detail: String {
     guard pulls.count == 1 else {
-      return Set(pulls.map(\.repository.nameWithOwner)).sorted().joined(separator: ", ")
+      return Set(pulls.map(\.repository.name)).sorted().joined(separator: ", ")
     }
-    return "#\(String(pulls[0].number)) · \(pulls[0].repository.nameWithOwner)"
+    return "#\(String(pulls[0].number)) · \(pulls[0].repository.name)"
   }
 }
