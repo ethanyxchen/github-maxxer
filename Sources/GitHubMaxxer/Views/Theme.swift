@@ -11,6 +11,7 @@ enum Palette {
   static let empty = dynamic(light: 0xD2D5CF, dark: 0x292D29)
   static let reached = dynamic(light: 0x6E9150, dark: 0x9BB87A)
   static let over = dynamic(light: 0x435E30, dark: 0xC4DCA2)
+  static let merged = dynamic(light: 0x8250DF, dark: 0xA371F7)
 
   static func colour(_ colour: WorkspaceColour?) -> Color {
     switch colour {
