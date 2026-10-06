@@ -354,11 +354,10 @@ private struct StampScene: View {
       Text("MERGED").tracking(1.8)
     }
     .font(.system(size: 12, weight: .heavy, design: .monospaced))
-    .foregroundStyle(Palette.reached)
+    .foregroundStyle(Palette.panel)
     .padding(.horizontal, 8)
     .padding(.vertical, 4)
-    .background(Palette.reached.opacity(0.12))
-    .overlay { Rectangle().strokeBorder(Palette.reached, lineWidth: 1.5) }
+    .background(Palette.reached)
     .mask {
       Rectangle().scaleEffect(x: min(max(time / Self.sweepDuration, 0), 1), anchor: .leading)
     }
