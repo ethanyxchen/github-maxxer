@@ -49,27 +49,58 @@ struct ActivityView: View {
 
   private func progress(_ pulls: [MergedPullRequest]) -> some View {
     HStack(alignment: .top, spacing: 48) {
-      today(progress(.day, in: pulls)).frame(maxWidth: .infinity, alignment: .leading)
+      today(progress(.day, in: pulls), shares: shares(.day, in: pulls)).frame(
+        maxWidth: .infinity, alignment: .leading)
       VStack(alignment: .leading, spacing: 28) {
-        period(.week, progress(.week, in: pulls))
-        period(.month, progress(.month, in: pulls))
+        ForEach([GoalPeriod.week, .month]) { period in
+          self.period(period, progress(period, in: pulls), shares: shares(period, in: pulls))
+        }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
 
   private func progress(_ period: GoalPeriod, in pulls: [MergedPullRequest]) -> GoalProgress {
-    GoalProgress(count: period.count(in: pulls, now: model.now), target: model.goals[period])
+    GoalProgress(
+      count: period.count(in: pulls, now: model.now), target: model.goals(for: filter)[period])
   }
 
-  private func today(_ progress: GoalProgress) -> some View {
+  private func shares(_ period: GoalPeriod, in pulls: [MergedPullRequest]) -> [MeterShare] {
+    guard filter == .all else {
+      let progress = progress(period, in: pulls)
+      return [share("", title: nil, progress, period)]
+    }
+    let workspaces = model.workspaces.map { workspace in
+      share(
+        workspace, title: model.title(for: workspace),
+        GoalProgress(
+          count: period.count(in: model.pullRequests(for: workspace), now: model.now),
+          target: model.goals(for: workspace)[period]),
+        period)
+    }
+    let other = period.count(in: pulls, now: model.now) - workspaces.map(\.count).reduce(0, +)
+    return workspaces
+      + (other > 0
+        ? [share("other", title: "Other", GoalProgress(count: other, target: 0), period)] : [])
+  }
+
+  private func share(
+    _ id: AnyHashable, title: String?, _ progress: GoalProgress, _ period: GoalPeriod
+  ) -> MeterShare {
+    MeterShare(
+      id: id, title: title, count: progress.count, target: progress.target,
+      pace: period == .day || progress.isComplete || progress.target == 0
+        ? nil : period.pace(target: progress.target, now: model.now))
+  }
+
+  private func today(_ progress: GoalProgress, shares: [MeterShare]) -> some View {
     VStack(alignment: .leading, spacing: 16) {
       Eyebrow("Today")
       HStack(alignment: .firstTextBaseline, spacing: 10) {
         Text(padded(progress.count)).font(.readout(64))
         Text("/ \(padded(progress.target))").font(.readout(22)).foregroundStyle(Palette.secondary)
       }
-      SegmentMeter(count: progress.count, target: progress.target)
+      SegmentMeter(shares: shares)
       HStack(spacing: 8) {
         Lamp(isOn: progress.isComplete)
         Text(status(progress)).font(.system(size: 12, design: .monospaced))
@@ -78,10 +109,13 @@ struct ActivityView: View {
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
-      "Today: \(progress.count) merged PRs, target \(progress.target). \(status(progress))")
+      "Today: \(progress.count) merged PRs, target \(progress.target). \(status(progress))\(breakdown(shares))"
+    )
   }
 
-  private func period(_ period: GoalPeriod, _ progress: GoalProgress) -> some View {
+  private func period(_ period: GoalPeriod, _ progress: GoalProgress, shares: [MeterShare])
+    -> some View
+  {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .firstTextBaseline) {
         Text(period.title).fontWeight(.semibold)
@@ -90,16 +124,13 @@ struct ActivityView: View {
         Spacer()
         Text("\(padded(progress.count)) / \(padded(progress.target))").font(.readout(14))
       }
-      SegmentMeter(
-        count: progress.count, target: progress.target,
-        pace: progress.isComplete ? nil : period.pace(target: progress.target, now: model.now),
-        height: 14)
+      SegmentMeter(shares: shares, height: 14)
       Text(note(period, progress)).font(.system(size: 11, design: .monospaced))
         .foregroundStyle(Palette.secondary).padding(.top, 4)
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
-      "\(period.title): \(progress.count) merged PRs, target \(progress.target). \(note(period, progress))"
+      "\(period.title): \(progress.count) merged PRs, target \(progress.target). \(note(period, progress))\(breakdown(shares))"
     )
   }
 
@@ -166,12 +197,12 @@ struct ActivityView: View {
   }
 
   private func dayHeader(_ day: Date, count: Int) -> some View {
-    let target = model.goals.daily
+    let target = model.goals(for: filter).daily
     return HStack {
       Eyebrow(dayName(day))
       Spacer()
       Text("\(padded(count)) / \(padded(target))").font(.readout(11))
-        .foregroundStyle(count >= target ? Palette.reached : Palette.secondary)
+        .foregroundStyle(target > 0 && count >= target ? Palette.reached : Palette.secondary)
     }
     .padding(.top, 18).padding(.bottom, 8)
     .overlay(alignment: .bottom) { Rule() }
@@ -183,13 +214,21 @@ struct ActivityView: View {
     return day.formatted(.dateTime.weekday(.wide).day().month(.abbreviated))
   }
 
+  private func breakdown(_ shares: [MeterShare]) -> String {
+    shares.compactMap { share in
+      share.title.map { ". \($0): \(share.count) of \(share.target)" }
+    }.joined()
+  }
+
   private func status(_ progress: GoalProgress) -> String {
+    if progress.target == 0 { return "No target" }
     guard progress.isComplete else { return "\(progress.remaining) to go" }
     let over = progress.count - progress.target
     return over > 0 ? "Target reached · \(over) over" : "Target reached"
   }
 
   private func note(_ period: GoalPeriod, _ progress: GoalProgress) -> String {
+    if progress.target == 0 { return "No target" }
     if progress.isComplete { return "Target reached" }
     let delta = progress.count - period.pace(target: progress.target, now: model.now)
     if delta > 0 { return "\(delta) ahead of pace" }

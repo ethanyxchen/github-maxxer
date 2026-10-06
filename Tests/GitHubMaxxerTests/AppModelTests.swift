@@ -16,7 +16,7 @@ struct AppModelTests {
       id: UUID(), label: "Work", profile: sample.profile,
       scope: RepositoryScope(allRepositories: false, owners: ["northstar"]),
       snapshot: sample.snapshot)
-    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let store = TestCredentials()
     try store.save("oauth-credential", for: connection.id)
     let configuration = URLSessionConfiguration.ephemeral
@@ -42,17 +42,47 @@ struct AppModelTests {
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
     let model = AppModel(stateURL: url, credentials: TestCredentials())
-    model.setDailyGoal(3)
+    model.setDailyGoal(3, for: .personal)
     #expect(model.progress(for: .day).target == 3)
     #expect(model.progress(for: .week).target == 15)
     #expect(model.progress(for: .month).target == 60)
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
-    #expect(reloaded.goals.daily == 3)
-    #expect(reloaded.goals.weekly == 15)
-    #expect(reloaded.goals.monthly == 60)
+    #expect(reloaded.goals(for: .personal) == Goals(daily: 3))
     let state = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
-    let savedGoals = state["goals"] as! [String: Any]
-    #expect(Set(savedGoals.keys) == ["daily"])
+    let personal = (state["targets"] as! [String: Any])["personal"] as! [String: Any]
+    #expect(Set(personal.keys) == ["daily"])
+  }
+
+  @Test func allActivityTargetSumsEachOrganisationsTarget() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let repositories = ["acme/app", "beta/app", "gone/app"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
+    }
+    let connection = AccountConnection(
+      id: UUID(), label: "Work", profile: sample.profile,
+      scope: RepositoryScope(allRepositories: false, owners: ["acme", "beta"]),
+      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [], fetchedAt: .now))
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
+
+    model.setDailyGoal(2, for: .personal)
+    model.setDailyGoal(4, for: .organization("ACME"))
+    model.setDailyGoal(0, for: .organization("beta"))
+    model.setDailyGoal(9, for: .organization("gone"))
+    model.setHidden(true, organization: "acme")
+    model.setDailyGoal(50, for: .all)
+
+    let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
+    #expect(reloaded.workspaces == [.personal, .organization("beta"), .organization("acme")])
+    #expect(reloaded.goals(for: .organization("acme")) == Goals(daily: 4))
+    #expect(reloaded.goals(for: .organization("beta")) == Goals(daily: 0))
+    #expect(reloaded.goals(for: .all) == Goals(daily: 6))
+    #expect(reloaded.progress(for: .month).target == 120)
+    #expect(reloaded.progress(for: .week, filter: .organization("acme")).target == 20)
   }
 
   @Test func previewSeparatesOrganizationAndPersonalActivity() {
@@ -84,7 +114,7 @@ struct AppModelTests {
     let connection = AccountConnection(
       id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
       snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [merged], fetchedAt: .now))
-    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(model.sidebarOrganizations == ["acme", "beta"])
 
@@ -122,7 +152,7 @@ struct AppModelTests {
     let saved = OrganizationPreferences(
       pinned: ["Beta"], hidden: ["ACME"], names: ["Beta": "Beta Labs"])
     try JSONEncoder().encode(
-      FixtureState(goals: Goals(), connections: [connection], organizations: saved)
+      FixtureState(connections: [connection], organizations: saved)
     ).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
@@ -154,11 +184,11 @@ struct AppModelTests {
     let saved = OrganizationPreferences(
       pinned: ["acme", "gone"], hidden: ["gone"], names: ["acme": "Acme", "gone": "Gone"])
     try JSONEncoder().encode(
-      FixtureState(goals: Goals(), connections: [connection], organizations: saved)
+      FixtureState(connections: [connection], organizations: saved)
     ).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
-    model.setDailyGoal(2)
+    model.setDailyGoal(2, for: .personal)
 
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.organizationPreferences.pinned == ["acme"])
@@ -172,16 +202,14 @@ struct AppModelTests {
     #expect(empty.organizationPreferences.names == ["acme": "Acme"])
   }
 
-  @Test func goalsSurviveRelaunchAndStayPositive() throws {
+  @Test func goalsSurviveRelaunchAndStayInRange() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
     let model = AppModel(stateURL: url, credentials: TestCredentials())
-    model.setDailyGoal(-4)
+    model.setDailyGoal(-4, for: .personal)
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
-    #expect(reloaded.goals.weekly == 5)
-    #expect(reloaded.goals.monthly == 20)
-    #expect(reloaded.goals.daily == 1)
+    #expect(reloaded.goals(for: .personal) == Goals(daily: 0))
     let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
     #expect(attributes[.posixPermissions] as? Int == 0o600)
   }
@@ -190,7 +218,7 @@ struct AppModelTests {
     let url = URL.temporaryDirectory.appending(path: UUID().uuidString).appending(
       path: "state.json")
     let model = AppModel(preview: true, stateURL: url, credentials: TestCredentials())
-    model.setDailyGoal(3)
+    model.setDailyGoal(3, for: .personal)
     model.setScope(RepositoryScope(allRepositories: false), for: model.connections[0].id)
     #expect(!FileManager.default.fileExists(atPath: url.path))
   }
@@ -201,7 +229,7 @@ struct AppModelTests {
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
     let connection = PreviewData.connections(now: .now)[0]
-    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let store = TestCredentials()
     try store.save("test-credential", for: connection.id)
     let model = AppModel(stateURL: url, credentials: store)
@@ -219,7 +247,7 @@ struct AppModelTests {
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
     let connections = PreviewData.connections(now: .now)
-    let state = FixtureState(goals: Goals(), connections: connections)
+    let state = FixtureState(connections: connections)
     try JSONEncoder().encode(state).write(to: url)
     let store = TestCredentials()
     let id = connections[0].id
@@ -245,7 +273,7 @@ struct AppModelTests {
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
     let connection = PreviewData.connections(now: .now)[0]
-    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: [connection])).write(to: url)
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let store = TestCredentials()
     try store.save("test-credential", for: connection.id)
     let configuration = URLSessionConfiguration.ephemeral
@@ -277,7 +305,7 @@ struct AppModelTests {
           id: name, login: name, name: nil, avatarUrl: sample.profile.avatarUrl),
         scope: RepositoryScope(), snapshot: sample.snapshot)
     }
-    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: connections)).write(
+    try JSONEncoder().encode(FixtureState(connections: connections)).write(
       to: url)
     let store = TestCredentials()
     for connection in connections { try store.save(connection.label, for: connection.id) }
@@ -311,7 +339,6 @@ private final class TestCredentials: CredentialStorage {
 }
 
 private struct FixtureState: Encodable {
-  let goals: Goals
   let connections: [AccountConnection]
   var organizations: OrganizationPreferences?
 }

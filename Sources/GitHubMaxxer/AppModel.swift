@@ -39,8 +39,13 @@ struct Landing: Equatable {
   let reveal: Date
 }
 
+struct Targets: Codable {
+  var personal = Goals()
+  var organizations: [String: Goals] = [:]
+}
+
 private struct SavedState: Codable {
-  var goals = Goals()
+  var targets = Targets()
   var connections: [AccountConnection] = []
   var organizations = OrganizationPreferences()
 }
@@ -48,7 +53,7 @@ private struct SavedState: Codable {
 extension SavedState {
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    goals = try container.decode(Goals.self, forKey: .goals)
+    targets = try container.decodeIfPresent(Targets.self, forKey: .targets) ?? Targets()
     connections = try container.decode([AccountConnection].self, forKey: .connections)
     organizations =
       try container.decodeIfPresent(OrganizationPreferences.self, forKey: .organizations)
@@ -60,7 +65,7 @@ extension SavedState {
 @Observable
 final class AppModel {
   private(set) var connections: [AccountConnection] = []
-  private(set) var goals = Goals()
+  private(set) var targets = Targets()
   private(set) var organizationPreferences = OrganizationPreferences()
   private(set) var isRefreshing = false
   private(set) var isConnecting = false
@@ -89,14 +94,14 @@ final class AppModel {
       .appending(path: "state.json")
     if preview {
       connections = PreviewData.connections(now: now)
-      goals = Goals(daily: 2)
+      targets = Targets(personal: Goals(daily: 2), organizations: ["northstar": Goals(daily: 3)])
     } else if FileManager.default.fileExists(atPath: self.stateURL.path) {
       do {
         let state = try JSONDecoder().decode(SavedState.self, from: Data(contentsOf: self.stateURL))
-        goals = state.goals
+        targets = state.targets
         connections = state.connections
         organizationPreferences = state.organizations
-        pruneOrganizationPreferences()
+        pruneForgottenOrganizations()
       } catch {
         storageError = "Saved activity could not be loaded. \(error.localizedDescription)"
       }
@@ -132,6 +137,36 @@ final class AppModel {
     return organizationPreferences.pinned.compactMap { key in
       visible.first { OrganizationPreferences.key($0) == key }
     } + visible.filter { !isPinned($0) }
+  }
+
+  var workspaces: [ActivityFilter] {
+    [.personal]
+      + (sidebarOrganizations + organizations.filter(isHidden)).map(ActivityFilter.organization)
+  }
+
+  func title(for filter: ActivityFilter) -> String {
+    guard case .organization(let owner) = filter else { return filter.title }
+    return displayName(for: owner)
+  }
+
+  func goals(for filter: ActivityFilter) -> Goals {
+    switch filter {
+    case .all: Goals(daily: workspaces.map { goals(for: $0).daily }.reduce(0, +))
+    case .personal: targets.personal
+    case .organization(let owner):
+      targets.organizations[OrganizationPreferences.key(owner)] ?? Goals()
+    }
+  }
+
+  func setDailyGoal(_ value: Int, for filter: ActivityFilter) {
+    let goals = Goals(clamping: value)
+    switch filter {
+    case .all: return
+    case .personal: targets.personal = goals
+    case .organization(let owner):
+      targets.organizations[OrganizationPreferences.key(owner)] = goals
+    }
+    persist()
   }
 
   func displayName(for organization: String) -> String {
@@ -191,18 +226,14 @@ final class AppModel {
   }
 
   func progress(for period: GoalPeriod, filter: ActivityFilter = .all) -> GoalProgress {
-    GoalProgress(count: pullRequests(for: period, filter: filter).count, target: goals[period])
+    GoalProgress(
+      count: pullRequests(for: period, filter: filter).count, target: goals(for: filter)[period])
   }
 
   func pullRequests(for period: GoalPeriod, filter: ActivityFilter = .all)
     -> [MergedPullRequest]
   {
     period.pullRequests(in: pullRequests(for: filter), now: now)
-  }
-
-  func setDailyGoal(_ value: Int) {
-    goals = Goals(daily: value)
-    persist()
   }
 
   func setScope(_ scope: RepositoryScope, for id: UUID) {
@@ -323,24 +354,25 @@ final class AppModel {
     }
   }
 
-  private func pruneOrganizationPreferences() {
+  private func pruneForgottenOrganizations() {
     guard !connections.isEmpty else { return }
     let owners = connections.flatMap {
       $0.snapshot.repositories + $0.snapshot.pullRequests.map(\.repository)
     }
-    organizationPreferences = organizationPreferences.keeping(
-      Set(owners.map { OrganizationPreferences.key($0.owner) }))
+    let keys = Set(owners.map { OrganizationPreferences.key($0.owner) })
+    organizationPreferences = organizationPreferences.keeping(keys)
+    targets.organizations = targets.organizations.filter { keys.contains($0.key) }
   }
 
   private func persist() {
     guard !isPreview else { return }
-    pruneOrganizationPreferences()
+    pruneForgottenOrganizations()
     do {
       let directory = stateURL.deletingLastPathComponent()
       try FileManager.default.createDirectory(
         at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
       let state = SavedState(
-        goals: goals, connections: connections, organizations: organizationPreferences)
+        targets: targets, connections: connections, organizations: organizationPreferences)
       try JSONEncoder().encode(state).write(to: stateURL, options: .atomic)
       try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: stateURL.path)
       storageError = nil

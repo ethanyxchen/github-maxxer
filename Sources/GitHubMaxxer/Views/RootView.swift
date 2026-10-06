@@ -145,8 +145,8 @@ struct RootView: View {
   }
 
   private func title(for destination: Destination) -> String {
-    guard case .activity(.organization(let owner)) = destination else { return destination.title }
-    return model.displayName(for: owner)
+    guard case .activity(let filter) = destination else { return destination.title }
+    return model.title(for: filter)
   }
 
   private func isPinned(_ destination: Destination) -> Bool {

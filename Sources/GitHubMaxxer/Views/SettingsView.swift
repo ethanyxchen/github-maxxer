@@ -8,36 +8,43 @@ struct SettingsView: View {
   @State private var removing: AccountConnection?
   @State private var removalError: String?
 
-  private var dailyGoal: Binding<Int> {
-    Binding(get: { model.goals.daily }, set: { model.setDailyGoal($0) })
+  private func dailyGoal(_ workspace: ActivityFilter) -> Binding<Int> {
+    Binding(
+      get: { model.goals(for: workspace).daily },
+      set: { model.setDailyGoal($0, for: workspace) })
   }
 
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
         SettingsSection(
-          "Merged PR targets",
+          "Daily merged PR targets",
           footer:
-            "Weekly and monthly targets follow your daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
+            "Set a target for Personal and each organisation, or 0 for none. All activity adds them together. Weekly and monthly targets follow the daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
         ) {
-          ForEach(GoalPeriod.allCases) { period in
+          ForEach(model.workspaces, id: \.self) { workspace in
             HStack {
-              Text(period.targetLabel)
+              Text(model.title(for: workspace))
               Spacer()
-              if period == .day {
-                TextField("Pull requests", value: dailyGoal, format: .number.grouping(.never))
-                  .labelsHidden().accessibilityLabel(period.targetLabel)
-                  .textFieldStyle(.plain)
-                  .multilineTextAlignment(.trailing).frame(width: 56)
-                  .monospacedDigit()
-                Stepper(period.targetLabel, value: dailyGoal, in: Goals.dailyRange)
-                  .labelsHidden().fixedSize()
-              } else {
-                Text(model.goals[period], format: .number.grouping(.never))
-                  .monospacedDigit()
-              }
+              TextField(
+                "Pull requests", value: dailyGoal(workspace), format: .number.grouping(.never)
+              )
+              .labelsHidden().accessibilityLabel("\(model.title(for: workspace)) daily target")
+              .textFieldStyle(.plain)
+              .multilineTextAlignment(.trailing).frame(width: 56)
+              .monospacedDigit()
+              Stepper(
+                "\(model.title(for: workspace)) daily target", value: dailyGoal(workspace),
+                in: Goals.dailyRange
+              )
+              .labelsHidden().fixedSize()
               Text("PRs").foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
             }
+          }
+          LabeledContent(ActivityFilter.all.title) {
+            let total = model.goals(for: .all)
+            Text("\(total.daily) a day · \(total.weekly) a week · \(total.monthly) a month")
+              .monospacedDigit()
           }
         }
         SettingsSection(
