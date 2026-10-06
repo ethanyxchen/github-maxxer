@@ -96,13 +96,12 @@ struct MeterShare: Identifiable {
   let count: Int
   let target: Int
   let color: Color
-
-  var isMet: Bool { count >= target }
 }
 
 struct SegmentMeter: View {
   let count: Int
   let target: Int
+  let isReached: Bool
   var pace: Int?
   var tint = Palette.ink
   var shares: [MeterShare] = []
@@ -111,7 +110,6 @@ struct SegmentMeter: View {
   private var scale: Int { max(target, count) }
   private var segments: Int { max(1, min(scale, 60)) }
   private var perSegment: Double { Double(scale) / Double(segments) }
-  private var isComplete: Bool { target > 0 && count >= target && shares.allSatisfy(\.isMet) }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
@@ -158,9 +156,9 @@ struct SegmentMeter: View {
 
   func color(end: Double) -> Color {
     guard Double(count) >= end - 0.001 else { return Palette.empty }
-    if !shares.isEmpty && !isComplete { return shareColor(at: end - perSegment / 2) }
+    if !shares.isEmpty && !isReached { return shareColor(at: end - perSegment / 2) }
     if end > Double(target) + 0.001 { return Palette.over }
-    return isComplete ? Palette.reached : tint
+    return isReached ? Palette.reached : tint
   }
 
   private func shareColor(at position: Double) -> Color {

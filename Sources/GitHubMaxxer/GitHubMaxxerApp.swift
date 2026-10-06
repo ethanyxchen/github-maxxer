@@ -60,7 +60,7 @@ struct GitHubMaxxerApp: App {
       MenuBarView().environment(model)
     } label: {
       let today = model.progress(for: .day)
-      Image(systemName: today.isComplete ? "checkmark.circle.fill" : "arrow.triangle.pull")
+      Image(systemName: model.isReached(.day) ? "checkmark.circle.fill" : "arrow.triangle.pull")
       Text("\(today.count)/\(today.target)")
     }
   }

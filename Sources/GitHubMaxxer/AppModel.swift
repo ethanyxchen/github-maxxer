@@ -304,6 +304,20 @@ final class AppModel {
       count: period.pullRequests(in: pulls, now: now).count, target: goals(for: filter)[period])
   }
 
+  func isReached(_ period: GoalPeriod, filter: ActivityFilter = .all) -> Bool {
+    isReached(period, in: period.pullRequests(in: merged, now: now), filter: filter)
+  }
+
+  func isReached(_ period: GoalPeriod, in pulls: [MergedPullRequest], filter: ActivityFilter)
+    -> Bool
+  {
+    goals(for: filter)[period] > 0
+      && (filter == .all ? workspaces : [filter]).allSatisfy { workspace in
+        workspace.pullRequests(in: pulls, personalLogins: personalLogins).count
+          >= goals(for: workspace)[period]
+      }
+  }
+
   func setScope(_ scope: RepositoryScope, for id: UUID) {
     guard let index = connections.firstIndex(where: { $0.id == id }) else { return }
     connections[index].scope = scope
