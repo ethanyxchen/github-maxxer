@@ -104,7 +104,8 @@ private struct BannerStage: View {
       }
     }
     .frame(width: MergeBanner.stage.width, height: MergeBanner.stage.height)
-    .animation(.easeIn(duration: MergeBanner.exit), value: model.banner == nil)
+    .animation(
+      model.banner == nil ? .easeIn(duration: MergeBanner.exit) : nil, value: model.banner == nil)
   }
 }
 
