@@ -16,7 +16,7 @@ final class MergeBanner {
 
   init(model: AppModel) {
     self.model = model
-    panel.level = .statusBar
+    panel.level = NSWindow.Level(NSWindow.Level.screenSaver.rawValue + 1)
     panel.collectionBehavior = [
       .canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle,
     ]
