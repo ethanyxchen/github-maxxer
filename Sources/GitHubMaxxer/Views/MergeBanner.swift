@@ -26,7 +26,7 @@ final class MergeBanner {
     panel.hidesOnDeactivate = false
     panel.canHide = false
     panel.contentView = NSHostingView(
-      rootView: BannerStage { [weak self] in self?.panel.orderOut(nil) }.environment(model))
+      rootView: BannerStage(dismiss: model.releaseBanner).environment(model))
     observe()
   }
 
@@ -58,7 +58,7 @@ final class MergeBanner {
     panel.orderFrontRegardless()
     Task {
       try? await Task.sleep(for: .seconds(Self.lifetime))
-      if shown == banner.date { panel.orderOut(nil) }
+      if shown == banner.date { model.releaseBanner() }
     }
   }
 }
