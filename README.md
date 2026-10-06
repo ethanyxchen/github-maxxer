@@ -27,6 +27,8 @@ Self-signed and ad hoc builds (`CODESIGN_IDENTITY=-`) do not preserve Keychain a
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 
+To replay the merge celebration, run `./scripts/replay-slam.sh`. It quits Hammertime, forgets each connected account's most recently merged PR, and relaunches the app so the next refresh lands it again.
+
 ## Connect GitHub
 
 Choose **Connect GitHub**, name the connection Personal or Work, and click **Sign in with GitHub**. The app opens your browser and shows a short code. Enter that code on GitHub and approve access; your activity loads automatically. No manual access token or GitHub CLI installation is needed.
