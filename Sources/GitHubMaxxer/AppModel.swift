@@ -407,7 +407,11 @@ final class AppModel {
 
   func setFocused(_ focused: Bool) {
     isFocused = focused
-    guard focused, let held else { return }
+    if focused { releaseBanner() }
+  }
+
+  func releaseBanner() {
+    guard let held else { return }
     let date = Date.now
     self.held = nil
     landing = Landing(pullRequests: held.pullRequests, date: date, reveal: date)
