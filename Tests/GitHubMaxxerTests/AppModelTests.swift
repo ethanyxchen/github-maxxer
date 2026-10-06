@@ -385,6 +385,27 @@ struct AppModelTests {
     #expect(landing.slam == nil)
     #expect(model.pullRequests.contains { $0.id == "fresh-test-credential" })
   }
+
+  @Test func bannerClearsWhenItsMergesDisappear() async throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let connection = PreviewData.connections(now: .now)[0]
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
+    let store = TestCredentials()
+    try store.save("test-credential", for: connection.id)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MergedProtocol.self]
+    let model = AppModel(
+      stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+    await model.refresh()
+    #expect(model.banner != nil)
+
+    try model.remove(connection.id)
+
+    #expect(model.banner == nil)
+  }
 }
 
 @MainActor

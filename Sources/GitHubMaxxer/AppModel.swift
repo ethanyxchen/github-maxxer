@@ -127,7 +127,7 @@ final class AppModel {
   private(set) var storageError: String?
   private(set) var now = Date.now
   private(set) var landing: Landing?
-  private(set) var banner: Landing?
+  private var held: Landing?
   private var isFocused = false
   let isPreview: Bool
   private let credentials: any CredentialStorage
@@ -168,14 +168,16 @@ final class AppModel {
 
   var pullRequests: [MergedPullRequest] {
     let pending = landing.flatMap { $0.reveal > now ? $0.pullRequests : nil } ?? []
-    let withheld = pending.union(banner?.pullRequests ?? [])
+    let withheld = pending.union(held?.pullRequests ?? [])
     return merged.filter { !withheld.contains($0.id) }
   }
 
   var announced: [MergedPullRequest] {
-    let held = banner?.pullRequests ?? []
-    return merged.filter { held.contains($0.id) }
+    let ids = held?.pullRequests ?? []
+    return merged.filter { ids.contains($0.id) }
   }
+
+  var banner: Landing? { announced.isEmpty ? nil : held }
 
   private var merged: [MergedPullRequest] {
     let interval = Activity.historyInterval(endingAt: now)
@@ -392,8 +394,7 @@ final class AppModel {
   private func land(_ arrived: Set<String>, since started: Date) {
     guard !arrived.isEmpty else { return }
     guard isFocused else {
-      banner = Landing(
-        arrived.union(banner?.pullRequests ?? []), joining: banner, since: started)
+      held = Landing(arrived.union(held?.pullRequests ?? []), joining: held, since: started)
       return
     }
     let landing = Landing(arrived, joining: landing, since: started)
@@ -406,10 +407,10 @@ final class AppModel {
 
   func setFocused(_ focused: Bool) {
     isFocused = focused
-    guard focused, let banner else { return }
+    guard focused, let held else { return }
     let date = Date.now
-    self.banner = nil
-    landing = Landing(pullRequests: banner.pullRequests, date: date, reveal: date)
+    self.held = nil
+    landing = Landing(pullRequests: held.pullRequests, date: date, reveal: date)
     now = date
   }
 
