@@ -351,7 +351,7 @@ private struct StampScene: View {
     let time = time - Self.sweepStart
     HStack(spacing: 6) {
       Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold))
-      Text("MERGED").tracking(1.8)
+      Text("Merged").textCase(.uppercase).tracking(1.8)
     }
     .font(.system(size: 12, weight: .heavy, design: .monospaced))
     .foregroundStyle(Palette.reached)
