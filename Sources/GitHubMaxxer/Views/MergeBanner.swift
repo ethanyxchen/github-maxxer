@@ -140,8 +140,8 @@ private struct BannerCard: View {
 
   private var detail: String {
     guard pulls.count == 1 else {
-      return Set(pulls.map(\.repository.nameWithOwner)).sorted().joined(separator: ", ")
+      return Set(pulls.map(\.repository.name)).sorted().joined(separator: ", ")
     }
-    return "#\(String(pulls[0].number)) · \(pulls[0].repository.nameWithOwner)"
+    return "#\(String(pulls[0].number)) · \(pulls[0].repository.name)"
   }
 }
