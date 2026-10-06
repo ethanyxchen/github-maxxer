@@ -123,7 +123,7 @@ struct RootView: View {
     .navigationSplitViewStyle(.balanced)
     .focusedSceneValue(\.destination, $selection)
     .onModifierKeysChanged(mask: .command) { _, keys in showsShortcuts = keys.contains(.command) }
-    .overlay { HammerSlam(landing: model.landing) }
+    .overlay { HammerSlam(landing: model.landing).ignoresSafeArea() }
     .sheet(item: $connectionDraft) { draft in
       ConnectionSheet(existing: draft.existing)
         .environment(model)

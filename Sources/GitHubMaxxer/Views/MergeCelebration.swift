@@ -121,38 +121,64 @@ private struct PageCapture: NSViewRepresentable {
   func makeNSView(context: Context) -> NSView { NSView() }
 
   func updateNSView(_ view: NSView, context: Context) {
-    guard let date, date != context.coordinator.date else { return }
-    context.coordinator.date = date
-    Task {
+    guard let date, date != context.coordinator.slam?.date else { return }
+    context.coordinator.slam?.task.cancel()
+    let task = Task {
       for _ in 0..<10 {
         if let page = Self.snapshot(view) {
           let layers = await Task.detached(priority: .userInitiated) { PageLayers(page) }.value
-          if let layers { capture(date, layers) }
+          guard let layers else { return }
+          capture(date, layers)
+          await Self.hideChrome(above: view, during: date)
           return
         }
         try? await Task.sleep(for: .milliseconds(50))
       }
     }
+    context.coordinator.slam = (date, task)
+  }
+
+  static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
+    coordinator.slam?.task.cancel()
   }
 
   func makeCoordinator() -> Coordinator { Coordinator() }
 
   private static func snapshot(_ view: NSView) -> CGImage? {
-    guard let content = view.window?.contentView else { return nil }
-    let frame = view.convert(view.bounds, to: content)
-    guard let bitmap = content.bitmapImageRepForCachingDisplay(in: frame) else { return nil }
-    content.cacheDisplay(in: frame, to: bitmap)
+    guard let window = view.window?.contentView?.superview else { return nil }
+    let frame = view.convert(view.bounds, to: window)
+    guard let bitmap = window.bitmapImageRepForCachingDisplay(in: frame) else { return nil }
+    window.cacheDisplay(in: frame, to: bitmap)
     return bitmap.cgImage
   }
 
+  private static func hideChrome(above view: NSView, during slam: Date) async {
+    guard let content = view.window?.contentView, let window = content.superview else { return }
+    let chrome = window.subviews.drop { $0 !== content }.dropFirst()
+    func fade(to alpha: Double, over duration: Double) async {
+      await NSAnimationContext.runAnimationGroup { animation in
+        animation.duration = duration
+        for view in chrome { view.animator().alphaValue = alpha }
+      }
+    }
+    do {
+      try await Task.sleep(for: .seconds(max(0, Slam.impact + slam.timeIntervalSinceNow)))
+      await fade(to: 0, over: 0)
+      try await Task.sleep(for: .seconds(max(0, Slam.reveal + slam.timeIntervalSinceNow)))
+      await fade(to: 1, over: Shatter.fade)
+    } catch {
+      await fade(to: 1, over: 0)
+    }
+  }
+
   final class Coordinator {
-    var date: Date?
+    var slam: (date: Date, task: Task<Void, Never>)?
   }
 }
 
 private struct Shatter: View {
   private static let growth = 0.18
-  private static let fade = 0.35
+  static let fade = 0.35
   static let duration = Slam.reveal + fade
   @MainActor private static let shake = KeyframeTimeline(initialValue: 0.0) {
     KeyframeTrack {
