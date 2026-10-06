@@ -25,7 +25,8 @@ final class MergeBanner {
     panel.hasShadow = false
     panel.hidesOnDeactivate = false
     panel.canHide = false
-    panel.contentView = NSHostingView(rootView: BannerStage().environment(model))
+    panel.contentView = NSHostingView(
+      rootView: BannerStage { [weak self] in self?.panel.orderOut(nil) }.environment(model))
     observe()
   }
 
@@ -63,20 +64,35 @@ final class MergeBanner {
 }
 
 private struct BannerStage: View {
+  let dismiss: () -> Void
   @Environment(AppModel.self) private var model
   @Environment(\.openWindow) private var openWindow
+  @State private var isHovering = false
 
   var body: some View {
     ZStack {
       if let banner = model.banner {
         BannerCard(pulls: model.announced, landing: banner)
-          .position(
-            x: MergeBanner.stage.width / 2, y: MergeBanner.stage.height * Slam.impactHeight
-          )
           .onTapGesture {
             openWindow(id: "main")
             NSApplication.shared.activate(ignoringOtherApps: true)
           }
+          .overlay(alignment: .topLeading) {
+            Button("Close", systemImage: "xmark", action: dismiss)
+              .labelStyle(.iconOnly)
+              .buttonStyle(.plain)
+              .font(.system(size: 9, weight: .bold))
+              .foregroundStyle(Palette.secondary)
+              .frame(width: 20, height: 20)
+              .background(Palette.panel, in: .circle)
+              .overlay { Circle().strokeBorder(Palette.rule) }
+              .offset(x: -7, y: -7)
+              .opacity(isHovering ? 1 : 0)
+          }
+          .onHover { isHovering = $0 }
+          .position(
+            x: MergeBanner.stage.width / 2, y: MergeBanner.stage.height * Slam.impactHeight
+          )
         HammerSwing(landing: banner)
       }
     }

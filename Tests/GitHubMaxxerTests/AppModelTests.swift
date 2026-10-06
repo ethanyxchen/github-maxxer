@@ -370,6 +370,8 @@ struct AppModelTests {
 
     await model.refresh()
 
+    let listed = GoalPeriod.day.pullRequests(in: model.pullRequests, now: model.now).count
+    #expect(model.progress(for: .day).count == listed + 1)
     #expect(model.landing == nil)
     #expect(model.banner?.pullRequests == ["fresh-test-credential"])
     #expect(model.announced.map(\.id) == ["fresh-test-credential"])

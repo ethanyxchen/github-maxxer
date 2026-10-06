@@ -275,8 +275,10 @@ final class AppModel {
   }
 
   func pullRequests(for filter: ActivityFilter) -> [MergedPullRequest] {
-    filter.pullRequests(in: pullRequests, personalLogins: Set(connections.map(\.profile.login)))
+    filter.pullRequests(in: pullRequests, personalLogins: personalLogins)
   }
+
+  private var personalLogins: Set<String> { Set(connections.map(\.profile.login)) }
 
   var trackedRepositoryCount: Int {
     Set(
@@ -295,14 +297,9 @@ final class AppModel {
   }
 
   func progress(for period: GoalPeriod, filter: ActivityFilter = .all) -> GoalProgress {
-    GoalProgress(
-      count: pullRequests(for: period, filter: filter).count, target: goals(for: filter)[period])
-  }
-
-  func pullRequests(for period: GoalPeriod, filter: ActivityFilter = .all)
-    -> [MergedPullRequest]
-  {
-    period.pullRequests(in: pullRequests(for: filter), now: now)
+    let pulls = filter.pullRequests(in: merged, personalLogins: personalLogins)
+    return GoalProgress(
+      count: period.pullRequests(in: pulls, now: now).count, target: goals(for: filter)[period])
   }
 
   func setScope(_ scope: RepositoryScope, for id: UUID) {
