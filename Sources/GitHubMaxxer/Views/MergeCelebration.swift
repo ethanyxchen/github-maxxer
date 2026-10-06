@@ -349,12 +349,15 @@ private struct StampScene: View {
 
   var body: some View {
     let time = time - Self.sweepStart
-    HStack(spacing: 4) {
-      Text("Merged")
-      Image(systemName: "checkmark")
+    HStack(spacing: 6) {
+      Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold))
+      Text("Merged").textCase(.uppercase).tracking(1.8)
     }
-    .font(.system(size: 11, weight: .medium, design: .monospaced))
-    .foregroundStyle(Palette.reached)
+    .font(.system(size: 12, weight: .heavy, design: .monospaced))
+    .foregroundStyle(Palette.merged)
+    .padding(.horizontal, 10)
+    .frame(maxHeight: .infinity)
+    .overlay { CropBrackets().stroke(Palette.merged, lineWidth: 1.5).padding(0.75) }
     .mask {
       Rectangle().scaleEffect(x: min(max(time / Self.sweepDuration, 0), 1), anchor: .leading)
     }
@@ -378,7 +381,25 @@ private struct StampScene: View {
       context.fill(
         Sparkle().path(
           in: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
-        with: .color(Palette.reached.opacity(1 - age)))
+        with: .color(Palette.merged.opacity(1 - age)))
+    }
+  }
+}
+
+private struct CropBrackets: Shape {
+  func path(in rect: CGRect) -> Path {
+    Path { path in
+      let length = 6.0
+      for (corner, dx, dy) in [
+        (CGPoint(x: rect.minX, y: rect.minY), 1.0, 1.0),
+        (CGPoint(x: rect.maxX, y: rect.minY), -1.0, 1.0),
+        (CGPoint(x: rect.minX, y: rect.maxY), 1.0, -1.0),
+        (CGPoint(x: rect.maxX, y: rect.maxY), -1.0, -1.0),
+      ] {
+        path.move(to: CGPoint(x: corner.x + length * dx, y: corner.y))
+        path.addLine(to: corner)
+        path.addLine(to: CGPoint(x: corner.x, y: corner.y + length * dy))
+      }
     }
   }
 }
