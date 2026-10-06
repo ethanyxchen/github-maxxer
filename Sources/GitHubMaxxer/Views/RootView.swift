@@ -23,9 +23,8 @@ enum Destination: Hashable {
     }
   }
 
-  func step(_ offset: Int, through workspaces: [ActivityFilter]) -> Destination {
-    let all: [Destination] =
-      [.activity(.all)] + workspaces.map(Destination.activity) + [.repositories, .settings]
+  func step(_ offset: Int, through activities: [ActivityFilter]) -> Destination {
+    let all = activities.map(Destination.activity) + [.repositories, .settings]
     guard let index = all.firstIndex(of: self) else { return self }
     return all[(index + offset + all.count) % all.count]
   }
@@ -33,6 +32,19 @@ enum Destination: Hashable {
 
 extension FocusedValues {
   @Entry var destination: Binding<Destination>?
+  @Entry var searchFocus: FocusState<Bool>.Binding?
+}
+
+private struct Findable: ViewModifier {
+  @FocusState private var isFocused: Bool
+
+  func body(content: Content) -> some View {
+    content.searchFocused($isFocused).focusedSceneValue(\.searchFocus, $isFocused)
+  }
+}
+
+extension View {
+  func findable() -> some View { modifier(Findable()) }
 }
 
 struct ConnectionDraft: Identifiable {
@@ -47,6 +59,7 @@ struct RootView: View {
   @State private var connectionDraft: ConnectionDraft?
   @State private var renaming: String?
   @State private var newName = ""
+  @State private var showsShortcuts = false
 
   var body: some View {
     NavigationSplitView {
@@ -108,6 +121,7 @@ struct RootView: View {
     }
     .navigationSplitViewStyle(.balanced)
     .focusedSceneValue(\.destination, $selection)
+    .onModifierKeysChanged(mask: .command) { _, keys in showsShortcuts = keys.contains(.command) }
     .overlay { HammerSlam(landing: model.landing) }
     .sheet(item: $connectionDraft) { draft in
       ConnectionSheet(existing: draft.existing)
@@ -149,7 +163,8 @@ struct RootView: View {
   private func row(_ destination: Destination) -> some View {
     SidebarRow(
       destination: destination, title: title(for: destination), tint: tint(for: destination),
-      isPinned: isPinned(destination), isSelected: selection == destination
+      isPinned: isPinned(destination), shortcut: shortcut(for: destination),
+      isSelected: selection == destination
     )
     .tag(destination)
     .listRowInsets(EdgeInsets())
@@ -164,6 +179,13 @@ struct RootView: View {
   private func tint(for destination: Destination) -> Color {
     guard case .activity(let filter) = destination, filter != .all else { return Palette.secondary }
     return Palette.colour(model.colour(for: filter))
+  }
+
+  private func shortcut(for destination: Destination) -> Int? {
+    guard showsShortcuts, case .activity(let filter) = destination,
+      let index = model.activities.firstIndex(of: filter), index < 9
+    else { return nil }
+    return index + 1
   }
 
   private func isPinned(_ destination: Destination) -> Bool {
@@ -281,6 +303,7 @@ private struct SidebarRow: View {
   let title: String
   let tint: Color
   let isPinned: Bool
+  let shortcut: Int?
   let isSelected: Bool
   @State private var isHovering = false
 
@@ -295,6 +318,10 @@ private struct SidebarRow: View {
         Image(systemName: "pin.fill").font(.system(size: 9))
           .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
           .accessibilityLabel("Pinned")
+      }
+      if let shortcut {
+        Text("⌘\(shortcut)").font(.system(size: 11, design: .monospaced))
+          .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
       }
     }
     .foregroundStyle(isSelected ? Palette.panel : Palette.ink)

@@ -5,15 +5,15 @@ import Testing
 
 struct DestinationTests {
   @Test func stepsThroughSidebarInOrderAndWraps() {
-    let workspaces: [ActivityFilter] = [.personal, .organization("acme")]
+    let activities: [ActivityFilter] = [.all, .personal, .organization("acme")]
 
-    #expect(Destination.activity(.all).step(1, through: workspaces) == .activity(.personal))
+    #expect(Destination.activity(.all).step(1, through: activities) == .activity(.personal))
     #expect(
-      Destination.activity(.personal).step(1, through: workspaces)
+      Destination.activity(.personal).step(1, through: activities)
         == .activity(.organization("acme")))
     #expect(
-      Destination.activity(.organization("acme")).step(1, through: workspaces) == .repositories)
-    #expect(Destination.settings.step(1, through: workspaces) == .activity(.all))
-    #expect(Destination.activity(.all).step(-1, through: workspaces) == .settings)
+      Destination.activity(.organization("acme")).step(1, through: activities) == .repositories)
+    #expect(Destination.settings.step(1, through: activities) == .activity(.all))
+    #expect(Destination.activity(.all).step(-1, through: activities) == .settings)
   }
 }

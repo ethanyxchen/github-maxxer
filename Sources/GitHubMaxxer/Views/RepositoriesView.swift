@@ -133,6 +133,7 @@ struct RepositoriesView: View {
       }
     }
     .searchable(text: $search, placement: .toolbar, prompt: "Find a repository or owner")
+    .findable()
   }
 
   private func ownerBinding(_ owner: String, account: AccountConnection) -> Binding<Bool> {

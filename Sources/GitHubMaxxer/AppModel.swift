@@ -185,6 +185,8 @@ final class AppModel {
     [.personal] + sidebarOrganizations.map(ActivityFilter.organization)
   }
 
+  var activities: [ActivityFilter] { [.all] + workspaces }
+
   func title(for filter: ActivityFilter) -> String {
     guard case .organization(let owner) = filter else { return filter.title }
     return displayName(for: owner)

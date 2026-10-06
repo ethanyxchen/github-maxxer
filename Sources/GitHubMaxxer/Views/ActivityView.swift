@@ -44,6 +44,7 @@ struct ActivityView: View {
     .background(Palette.panel)
     .foregroundStyle(Palette.ink)
     .searchable(text: $search, placement: .toolbar, prompt: "Search merges")
+    .findable()
   }
 
   private func progress(_ pulls: [MergedPullRequest]) -> some View {
