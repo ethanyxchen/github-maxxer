@@ -313,6 +313,7 @@ struct AppModelTests {
     configuration.protocolClasses = [MergedProtocol.self]
     let model = AppModel(
       stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+    model.setFocused(true)
 
     await model.refresh()
     let landing = try #require(model.landing)
@@ -346,10 +347,41 @@ struct AppModelTests {
     configuration.protocolClasses = [MergedProtocol.self]
     let model = AppModel(
       stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+    model.setFocused(true)
 
     await model.refresh()
 
     #expect(model.landing?.pullRequests == ["fresh-first", "fresh-second"])
+  }
+
+  @Test func mergesWhileUnfocusedWaitInTheBannerUntilFocus() async throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let connection = PreviewData.connections(now: .now)[0]
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
+    let store = TestCredentials()
+    try store.save("test-credential", for: connection.id)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MergedProtocol.self]
+    let model = AppModel(
+      stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+
+    await model.refresh()
+
+    #expect(model.landing == nil)
+    #expect(model.banner?.pullRequests == ["fresh-test-credential"])
+    #expect(model.announced.map(\.id) == ["fresh-test-credential"])
+    #expect(!model.pullRequests.contains { $0.id == "fresh-test-credential" })
+
+    model.setFocused(true)
+
+    let landing = try #require(model.landing)
+    #expect(model.banner == nil)
+    #expect(landing.pullRequests == ["fresh-test-credential"])
+    #expect(landing.slam == nil)
+    #expect(model.pullRequests.contains { $0.id == "fresh-test-credential" })
   }
 }
 

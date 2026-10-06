@@ -37,6 +37,23 @@ struct Landing: Equatable {
   let pullRequests: Set<String>
   let date: Date
   let reveal: Date
+
+  var slam: Date? { reveal > date ? date : nil }
+}
+
+extension Landing {
+  init(_ arrived: Set<String>, joining previous: Landing?, since started: Date) {
+    if let previous, previous.date >= started {
+      self.init(
+        pullRequests: previous.pullRequests.union(arrived), date: previous.date,
+        reveal: previous.reveal)
+    } else {
+      let date = Date.now
+      let delay =
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Landing.celebration
+      self.init(pullRequests: arrived, date: date, reveal: date.addingTimeInterval(delay))
+    }
+  }
 }
 
 enum WorkspaceColour: String, CaseIterable, Codable, Identifiable {
@@ -110,6 +127,8 @@ final class AppModel {
   private(set) var storageError: String?
   private(set) var now = Date.now
   private(set) var landing: Landing?
+  private(set) var banner: Landing?
+  private var isFocused = false
   let isPreview: Bool
   private let credentials: any CredentialStorage
   private let session: URLSession
@@ -149,7 +168,13 @@ final class AppModel {
 
   var pullRequests: [MergedPullRequest] {
     let pending = landing.flatMap { $0.reveal > now ? $0.pullRequests : nil } ?? []
-    return merged.filter { !pending.contains($0.id) }
+    let withheld = pending.union(banner?.pullRequests ?? [])
+    return merged.filter { !withheld.contains($0.id) }
+  }
+
+  var announced: [MergedPullRequest] {
+    let held = banner?.pullRequests ?? []
+    return merged.filter { held.contains($0.id) }
   }
 
   private var merged: [MergedPullRequest] {
@@ -369,20 +394,26 @@ final class AppModel {
 
   private func land(_ arrived: Set<String>, since started: Date) {
     guard !arrived.isEmpty else { return }
-    if let landing, landing.date >= started {
-      self.landing = Landing(
-        pullRequests: landing.pullRequests.union(arrived), date: landing.date,
-        reveal: landing.reveal)
+    guard isFocused else {
+      banner = Landing(
+        arrived.union(banner?.pullRequests ?? []), joining: banner, since: started)
       return
     }
-    let date = Date.now
-    let delay =
-      NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Landing.celebration
-    landing = Landing(pullRequests: arrived, date: date, reveal: date.addingTimeInterval(delay))
+    let landing = Landing(arrived, joining: landing, since: started)
+    self.landing = landing
     Task {
-      try? await Task.sleep(for: .seconds(delay))
+      try? await Task.sleep(for: .seconds(max(0, landing.reveal.timeIntervalSinceNow)))
       now = .now
     }
+  }
+
+  func setFocused(_ focused: Bool) {
+    isFocused = focused
+    guard focused, let banner else { return }
+    let date = Date.now
+    self.banner = nil
+    landing = Landing(pullRequests: banner.pullRequests, date: date, reveal: date)
+    now = date
   }
 
   func startRefreshing() {

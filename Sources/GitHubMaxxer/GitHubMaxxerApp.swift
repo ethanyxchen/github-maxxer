@@ -7,9 +7,7 @@ struct GitHubMaxxerApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
   @FocusedBinding(\.destination) private var destination
   @FocusedValue(\.searchFocus) private var searchFocus
-  @State private var model = AppModel(
-    preview: ProcessInfo.processInfo.arguments.contains("--preview")
-      || ProcessInfo.processInfo.arguments.contains("--preview-dark"))
+  private var model: AppModel { delegate.model }
 
   private var previewColorScheme: ColorScheme? {
     ProcessInfo.processInfo.arguments.contains("--preview-dark") ? .dark : nil
@@ -93,8 +91,14 @@ private struct MenuBarView: View {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+  let model = AppModel(
+    preview: ProcessInfo.processInfo.arguments.contains("--preview")
+      || ProcessInfo.processInfo.arguments.contains("--preview-dark"))
+  private var banner: MergeBanner?
+
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApplication.shared.setActivationPolicy(.regular)
+    banner = MergeBanner(model: model)
     if ProcessInfo.processInfo.arguments.contains("--verify-github") {
       Task {
         do {
