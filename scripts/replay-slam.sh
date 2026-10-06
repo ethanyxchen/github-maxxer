@@ -1,6 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+case "${1:-}" in
+  "") launch=(open build/Hammertime.app) ;;
+  --banner) launch=(open -g -j build/Hammertime.app --args --no-activate) ;;
+  *)
+    printf 'Usage: %s [--banner]\n' "$0" >&2
+    exit 1
+    ;;
+esac
 if [[ ! -d build/Hammertime.app ]]; then
   printf 'Build Hammertime first with ./scripts/build-app.sh.\n' >&2
   exit 1
@@ -28,4 +36,4 @@ with open(path + '.replay', 'w') as file:
 os.chmod(path + '.replay', 0o600)
 os.replace(path + '.replay', path)
 PY
-open build/Hammertime.app
+"${launch[@]}"
