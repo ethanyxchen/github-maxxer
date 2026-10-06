@@ -1,7 +1,7 @@
 import GitHubMaxxerCore
 import SwiftUI
 
-private enum Destination: Hashable {
+enum Destination: Hashable {
   case activity(ActivityFilter)
   case repositories, settings
 
@@ -22,6 +22,17 @@ private enum Destination: Hashable {
     case .settings: "slider.horizontal.3"
     }
   }
+
+  func step(_ offset: Int, through workspaces: [ActivityFilter]) -> Destination {
+    let all: [Destination] =
+      [.activity(.all)] + workspaces.map(Destination.activity) + [.repositories, .settings]
+    guard let index = all.firstIndex(of: self) else { return self }
+    return all[(index + offset + all.count) % all.count]
+  }
+}
+
+extension FocusedValues {
+  @Entry var destination: Binding<Destination>?
 }
 
 struct ConnectionDraft: Identifiable {
@@ -96,6 +107,7 @@ struct RootView: View {
       }
     }
     .navigationSplitViewStyle(.balanced)
+    .focusedSceneValue(\.destination, $selection)
     .overlay { HammerSlam(landing: model.landing) }
     .sheet(item: $connectionDraft) { draft in
       ConnectionSheet(existing: draft.existing)

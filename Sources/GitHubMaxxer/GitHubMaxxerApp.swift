@@ -5,6 +5,7 @@ import SwiftUI
 @main
 struct GitHubMaxxerApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+  @FocusedBinding(\.destination) private var destination
   @State private var model = AppModel(
     preview: ProcessInfo.processInfo.arguments.contains("--preview")
       || ProcessInfo.processInfo.arguments.contains("--preview-dark"))
@@ -21,6 +22,19 @@ struct GitHubMaxxerApp: App {
     .defaultSize(width: 1120, height: 800)
     .commands {
       CommandGroup(replacing: .newItem) {}
+      CommandGroup(replacing: .sidebar) {
+        Button("Toggle Sidebar") {
+          NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+        }
+        .keyboardShortcut("s", modifiers: .command)
+        Divider()
+        Button("Previous Page") { destination = destination?.step(-1, through: model.workspaces) }
+          .keyboardShortcut("[", modifiers: [.command, .shift])
+          .disabled(destination == nil)
+        Button("Next Page") { destination = destination?.step(1, through: model.workspaces) }
+          .keyboardShortcut("]", modifiers: [.command, .shift])
+          .disabled(destination == nil)
+      }
       CommandGroup(after: .appInfo) {
         Link(
           "Hammertime on GitHub",
