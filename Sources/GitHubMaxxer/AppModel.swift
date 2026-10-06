@@ -158,7 +158,10 @@ final class AppModel {
       from: connections.map {
         ScopedActivity(pullRequests: $0.snapshot.pullRequests, scope: $0.scope)
       }
-    ).filter { interval.contains($0.mergedAt) }
+    ).filter { pull in
+      interval.contains(pull.mergedAt)
+        && !(pull.repository.ownerKind == .organization && isHidden(pull.repository.owner))
+    }
   }
 
   var organizations: [String] {
@@ -179,8 +182,7 @@ final class AppModel {
   }
 
   var workspaces: [ActivityFilter] {
-    [.personal]
-      + (sidebarOrganizations + organizations.filter(isHidden)).map(ActivityFilter.organization)
+    [.personal] + sidebarOrganizations.map(ActivityFilter.organization)
   }
 
   func title(for filter: ActivityFilter) -> String {

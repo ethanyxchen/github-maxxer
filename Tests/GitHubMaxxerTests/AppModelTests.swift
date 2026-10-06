@@ -106,11 +106,14 @@ struct AppModelTests {
     model.setDailyGoal(50, for: .all)
 
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
-    #expect(reloaded.workspaces == [.personal, .organization("beta"), .organization("acme")])
+    #expect(reloaded.workspaces == [.personal, .organization("beta")])
     #expect(reloaded.goals(for: .organization("acme")) == Goals(daily: 4))
     #expect(reloaded.goals(for: .organization("beta")) == Goals(daily: 0))
+    #expect(reloaded.goals(for: .all) == Goals(daily: 2))
+    #expect(reloaded.progress(for: .month).target == 40)
+
+    reloaded.setHidden(false, organization: "acme")
     #expect(reloaded.goals(for: .all) == Goals(daily: 6))
-    #expect(reloaded.progress(for: .month).target == 120)
     #expect(reloaded.progress(for: .week, filter: .organization("acme")).target == 20)
   }
 
@@ -157,11 +160,12 @@ struct AppModelTests {
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.sidebarOrganizations == ["acme"])
     #expect(reloaded.isPinned("beta"))
-    #expect(reloaded.pullRequests(for: .all) == [merged])
-    #expect(reloaded.progress(for: .day).count == 1)
+    #expect(reloaded.pullRequests(for: .all).isEmpty)
+    #expect(reloaded.progress(for: .day).count == 0)
     #expect(reloaded.displayName(for: "acme") == "Acme Inc")
     reloaded.renameOrganization("acme", to: " ")
     reloaded.setHidden(false, organization: "beta")
+    #expect(reloaded.pullRequests(for: .all) == [merged])
     #expect(reloaded.displayName(for: "acme") == "acme")
     #expect(reloaded.sidebarOrganizations == ["beta", "acme"])
   }
