@@ -134,7 +134,6 @@ private struct PageCapture: NSViewRepresentable {
 }
 
 private struct Shatter: View {
-  static let rings = [0.01, 0.022, 0.04, 0.065, 0.1, 0.15, 0.22, 0.31, 0.43, 0.58, 0.78, 1.15]
   private static let growth = 0.18
   private static let fade = 0.35
   static let duration = Slam.reveal + fade
@@ -168,7 +167,7 @@ private struct Shatter: View {
       backdrop.draw(context.resolve(Image(decorative: layers.backdrop, scale: 1)), in: bounds)
       web.shards(
         in: &context, time: time - Slam.shatter,
-        extent: reach * Self.rings.last! * (1 - pow(1 - growth, 3)),
+        extent: reach * Web.rings.last! * (1 - pow(1 - growth, 3)),
         content: context.resolve(Image(decorative: layers.content, scale: 1)), bounds: bounds)
       flash(in: &context, at: center, radius: min(size.width, size.height) * 0.18)
     }
@@ -188,6 +187,7 @@ private struct Shatter: View {
 }
 
 private struct Web {
+  static let rings = [0.01, 0.022, 0.04, 0.065, 0.1, 0.15, 0.22, 0.31, 0.43, 0.58, 0.78, 1.15]
   let center: CGPoint
   let reach: Double
   let seed: Int
@@ -198,7 +198,7 @@ private struct Web {
     in context: inout GraphicsContext, time: Double, extent: Double,
     content: GraphicsContext.ResolvedImage, bounds: CGRect
   ) {
-    let pieces = (0..<Shatter.rings.count).reversed().flatMap { ring in
+    let pieces = (0..<Self.rings.count).reversed().flatMap { ring in
       (0..<spokes).compactMap { spoke in
         let outline = outline(spoke, ring)
         return pose(spoke, ring, frame: outline.boundingRect, time: time, extent: extent).map {
@@ -266,7 +266,7 @@ private struct Web {
     let distance = max(hypot(away.dx, away.dy), 1)
     let cracked = extent >= self.distance(vertex(spoke, ring)) ? 1.0 : 0
     let delay =
-      0.22 * Double(ring) / Double(Shatter.rings.count) + 0.08 * random(spoke * 5 + ring, 15)
+      0.22 * Double(ring) / Double(Self.rings.count) + 0.08 * random(spoke * 5 + ring, 15)
     let flight = max(time - delay, 0)
     guard flight < Pose.life else { return nil }
     let push =
@@ -290,7 +290,7 @@ private struct Web {
     let angle =
       2 * .pi * (Double(spoke) + 0.6 * (random(spoke, 10) - 0.5)) / Double(spokes)
       + (random(spoke * 17 + ring, 12) - 0.5) * 0.12
-    let radius = Shatter.rings[ring] * reach * (0.8 + 0.4 * random(spoke * 31 + ring, 11))
+    let radius = Self.rings[ring] * reach * (0.8 + 0.4 * random(spoke * 31 + ring, 11))
     return CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
   }
 
