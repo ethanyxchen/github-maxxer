@@ -45,7 +45,9 @@ final class MergeBanner {
       panel.orderOut(nil)
       return
     }
-    guard banner.date != shown, let screen = NSScreen.main else { return }
+    let pointer = NSEvent.mouseLocation
+    let pointed = NSScreen.screens.first { $0.frame.contains(pointer) }
+    guard banner.date != shown, let screen = pointed ?? NSScreen.main else { return }
     shown = banner.date
     let visible = screen.visibleFrame
     let center = CGPoint(
