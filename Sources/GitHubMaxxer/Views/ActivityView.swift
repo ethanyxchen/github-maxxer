@@ -32,7 +32,6 @@ struct ActivityView: View {
         VStack(spacing: 0) {
           PageTitle(title).padding(.top, 28)
           progress(pulls).padding(.top, 24).padding(.bottom, 32)
-          Rule()
           log(days(in: pulls)).padding(.vertical, 20).id("log")
           if search.isEmpty { pager.padding(.bottom, 28) }
         }
