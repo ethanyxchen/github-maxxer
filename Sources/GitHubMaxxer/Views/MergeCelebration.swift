@@ -349,12 +349,16 @@ private struct StampScene: View {
 
   var body: some View {
     let time = time - Self.sweepStart
-    HStack(spacing: 4) {
-      Text("Merged")
-      Image(systemName: "checkmark")
+    HStack(spacing: 6) {
+      Image(systemName: "checkmark").font(.system(size: 11, weight: .black))
+      Text("MERGED").tracking(1.8)
     }
-    .font(.system(size: 11, weight: .medium, design: .monospaced))
+    .font(.system(size: 12, weight: .heavy, design: .monospaced))
     .foregroundStyle(Palette.reached)
+    .padding(.horizontal, 8)
+    .padding(.vertical, 4)
+    .background(Palette.reached.opacity(0.12))
+    .overlay { Rectangle().strokeBorder(Palette.reached, lineWidth: 1.5) }
     .mask {
       Rectangle().scaleEffect(x: min(max(time / Self.sweepDuration, 0), 1), anchor: .leading)
     }
