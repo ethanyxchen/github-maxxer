@@ -257,8 +257,38 @@ struct AppModelTests {
     let landing = try #require(model.landing)
     await model.refresh()
 
-    #expect(landing.pullRequests == ["fresh-pr"])
+    #expect(landing.pullRequests == ["fresh-test-credential"])
     #expect(model.landing == landing)
+    #expect(
+      model.pullRequests.contains { $0.id == "fresh-test-credential" }
+        == (landing.reveal <= model.now))
+  }
+
+  @Test func refreshMergesEveryAccountsArrivalsIntoOneLanding() async throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let connections = ["first", "second"].map { name in
+      AccountConnection(
+        id: UUID(), label: name,
+        profile: GitHubProfile(
+          id: name, login: name, name: nil, avatarUrl: sample.profile.avatarUrl),
+        scope: RepositoryScope(), snapshot: sample.snapshot)
+    }
+    try JSONEncoder().encode(FixtureState(goals: Goals(), connections: connections)).write(
+      to: url)
+    let store = TestCredentials()
+    for connection in connections { try store.save(connection.label, for: connection.id) }
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MergedProtocol.self]
+    let model = AppModel(
+      stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+
+    await model.refresh()
+
+    #expect(model.landing?.pullRequests == ["fresh-first", "fresh-second"])
   }
 }
 
@@ -340,10 +370,11 @@ private final class MergedProtocol: URLProtocol, @unchecked Sendable {
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func startLoading() {
     let mergedAt = ISO8601DateFormatter().string(from: .now.addingTimeInterval(-60))
+    let token = request.value(forHTTPHeaderField: "Authorization")?.split(separator: " ").last ?? ""
     let body =
       (try? requestBody(request)["query"] as? String)?.contains("search(query") == true
       ? """
-      {"data":{"search":{"issueCount":1,"nodes":[{"id":"fresh-pr","title":"Slam","number":1,"url":"https://github.com/acme/app/pull/1","mergedAt":"\(mergedAt)","repository":{"id":"r1","nameWithOwner":"acme/app","isPrivate":false,"ownerKind":{"__typename":"User"}}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}
+      {"data":{"search":{"issueCount":1,"nodes":[{"id":"fresh-\(token)","title":"Slam","number":1,"url":"https://github.com/acme/app/pull/1","mergedAt":"\(mergedAt)","repository":{"id":"r1","nameWithOwner":"acme/app","isPrivate":false,"ownerKind":{"__typename":"User"}}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}
       """
       : """
       {"data":{"viewer":{"repositories":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}

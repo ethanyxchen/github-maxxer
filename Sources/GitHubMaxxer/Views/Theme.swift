@@ -28,10 +28,6 @@ extension NSColor {
   }
 }
 
-extension Color {
-  init(hex: UInt32) { self.init(nsColor: NSColor(hex: hex)) }
-}
-
 extension Font {
   static func readout(_ size: CGFloat) -> Font {
     .system(size: size, weight: .medium, design: .monospaced)

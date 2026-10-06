@@ -126,7 +126,7 @@ struct ActivityView: View {
           }
         }
       }
-      .animation(.spring(duration: 0.5, bounce: 0.3).delay(Slam.reveal), value: model.landing)
+      .animation(.spring(duration: 0.5, bounce: 0.3), value: model.now)
     }
   }
 

@@ -6,25 +6,25 @@ enum Slam {
   static let hold = 0.09
   static let release = impact + hold
   static let shatter = release + 0.36
-  static let reveal = 2.5
+  static let reveal = Landing.celebration
   static let impactHeight = 0.55
 }
 
 struct Choreography<Content: View>: View {
-  let landing: Landing?
+  let start: Date?
   let duration: Double
   @ViewBuilder let content: (Double) -> Content
   @State private var isSettled = false
 
-  private var start: Date { landing?.date ?? .distantPast }
+  private var origin: Date { start ?? .distantPast }
 
   var body: some View {
     TimelineView(.animation(paused: isSettled)) { context in
-      content(isSettled ? duration : min(context.date.timeIntervalSince(start), duration))
+      content(isSettled ? duration : min(context.date.timeIntervalSince(origin), duration))
     }
-    .task(id: landing) {
+    .task(id: start) {
       isSettled = false
-      let remaining = start.addingTimeInterval(duration).timeIntervalSinceNow
+      let remaining = origin.addingTimeInterval(duration).timeIntervalSinceNow
       try? await Task.sleep(for: .seconds(max(0, remaining)))
       isSettled = true
     }
@@ -33,26 +33,34 @@ struct Choreography<Content: View>: View {
 
 struct HammerSlam: View {
   let landing: Landing?
-  @State private var page: (landing: Landing, layers: PageLayers)?
+  @State private var page: (date: Date, layers: PageLayers)?
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.appearsActive) private var appearsActive
 
   var body: some View {
     if !reduceMotion {
-      Choreography(landing: landing, duration: Shatter.duration) { time in
+      Choreography(start: landing?.date, duration: Shatter.duration) { time in
         Shatter(
-          time: time, seed: seed, layers: page.flatMap { $0.landing == landing ? $0.layers : nil })
+          time: time, seed: seed,
+          layers: page.flatMap { $0.date == landing?.date ? $0.layers : nil })
         if time > Swing.entrance, time < Swing.timeline.duration {
           let swing = Swing.timeline.value(time: time)
           Sledgehammer(swing: swing).opacity(swing.opacity)
         }
       }
       .background {
-        PageCapture(landing: landing) { landing, layers in page = (landing, layers) }
+        PageCapture(date: landing?.date) { date, layers in page = (date, layers) }
       }
-      .task(id: landing) {
-        guard let landing else { return }
-        Soundtrack.shared.play(elapsed: -landing.date.timeIntervalSinceNow)
+      .task(id: landing?.date) {
+        guard let date = landing?.date else { return }
+        if appearsActive { Soundtrack.shared.play(elapsed: -date.timeIntervalSinceNow) }
+        do {
+          try await Task.sleep(
+            for: .seconds(max(0, Shatter.duration + date.timeIntervalSinceNow)))
+        } catch { return }
+        page = nil
       }
+      .task { _ = SledgehammerRig.shared }
       .allowsHitTesting(false)
       .accessibilityHidden(true)
     }
@@ -90,28 +98,38 @@ private final class Soundtrack {
 }
 
 private struct PageCapture: NSViewRepresentable {
-  let landing: Landing?
-  let capture: (Landing, PageLayers) -> Void
+  let date: Date?
+  let capture: (Date, PageLayers) -> Void
 
   func makeNSView(context: Context) -> NSView { NSView() }
 
   func updateNSView(_ view: NSView, context: Context) {
-    guard let landing, landing != context.coordinator.landing else { return }
-    context.coordinator.landing = landing
-    DispatchQueue.main.async {
-      guard let content = view.window?.contentView else { return }
-      let frame = view.convert(view.bounds, to: content)
-      guard let bitmap = content.bitmapImageRepForCachingDisplay(in: frame) else { return }
-      content.cacheDisplay(in: frame, to: bitmap)
-      guard let page = bitmap.cgImage, let layers = PageLayers(page) else { return }
-      capture(landing, layers)
+    guard let date, date != context.coordinator.date else { return }
+    context.coordinator.date = date
+    Task {
+      for _ in 0..<10 {
+        if let page = Self.snapshot(view) {
+          let layers = await Task.detached(priority: .userInitiated) { PageLayers(page) }.value
+          if let layers { capture(date, layers) }
+          return
+        }
+        try? await Task.sleep(for: .milliseconds(50))
+      }
     }
   }
 
   func makeCoordinator() -> Coordinator { Coordinator() }
 
+  private static func snapshot(_ view: NSView) -> CGImage? {
+    guard let content = view.window?.contentView else { return nil }
+    let frame = view.convert(view.bounds, to: content)
+    guard let bitmap = content.bitmapImageRepForCachingDisplay(in: frame) else { return nil }
+    content.cacheDisplay(in: frame, to: bitmap)
+    return bitmap.cgImage
+  }
+
   final class Coordinator {
-    var landing: Landing?
+    var date: Date?
   }
 }
 
@@ -142,7 +160,7 @@ private struct Shatter: View {
       let reach = hypot(
         max(center.x, size.width - center.x), max(center.y, size.height - center.y))
       let web = Web(center: center, reach: reach, seed: seed)
-      guard let layers, time >= Slam.impact else { return }
+      guard let layers, time >= Slam.impact, time < Self.duration else { return }
       let growth = min(max((time - Slam.release) / Self.growth, 0), 1)
       context.translateBy(x: 0, y: Self.shake.value(time: time))
       var backdrop = context
@@ -316,14 +334,14 @@ struct MergedStamp: View {
   let landing: Landing
 
   var body: some View {
-    Choreography(landing: landing, duration: StampScene.duration) { time in
+    Choreography(start: landing.reveal, duration: StampScene.duration) { time in
       StampScene(time: time)
     }
   }
 }
 
 private struct StampScene: View {
-  private static let sweepStart = Slam.reveal + 0.5
+  private static let sweepStart = 0.5
   private static let sweepDuration = 0.45
   private static let sparkleLife = 0.8
   static let duration = sweepStart + sweepDuration + sparkleLife

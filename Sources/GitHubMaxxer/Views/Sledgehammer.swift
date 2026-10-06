@@ -42,11 +42,12 @@ struct Sledgehammer: NSViewRepresentable {
     context.coordinator.pose(swing)
   }
 
-  func makeCoordinator() -> SledgehammerRig { SledgehammerRig() }
+  func makeCoordinator() -> SledgehammerRig { .shared }
 }
 
 @MainActor
 final class SledgehammerRig {
+  static let shared = SledgehammerRig()
   private static let handleLength: Float = 8.79
   private static let strikerDepth: Float = 0.96
   private static let glassDistance: Float = 8

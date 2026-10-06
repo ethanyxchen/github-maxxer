@@ -11,6 +11,10 @@ require_app_stopped() {
   done < <(pgrep -x Hammertime || true)
 }
 require_app_stopped
+if grep -l '^version https://git-lfs.github.com/spec/v1' Sources/GitHubMaxxer/Resources/* >/dev/null; then
+  printf 'Hammer assets are Git LFS pointers. Run git lfs install && git lfs pull, then build again.\n' >&2
+  exit 1
+fi
 swift build -c release
 binary_directory="$(swift build -c release --show-bin-path)"
 mkdir -p "$PWD/build"
