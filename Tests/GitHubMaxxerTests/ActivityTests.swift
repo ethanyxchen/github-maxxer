@@ -5,10 +5,10 @@ import Testing
 
 struct ActivityTests {
   @Test func dailyGoalHasSafeBoundsForDerivedTargets() {
-    #expect(Goals(daily: -1).daily == 1)
-    #expect(Goals(daily: Int.max).daily == 10_000)
-    #expect(Goals(daily: Int.max).weekly == 50_000)
-    #expect(Goals(daily: Int.max).monthly == 200_000)
+    #expect(Goals(clamping: -1).daily == 0)
+    #expect(Goals(clamping: Int.max).daily == 10_000)
+    #expect(Goals(clamping: Int.max).weekly == 50_000)
+    #expect(Goals(clamping: Int.max).monthly == 200_000)
   }
 
   private var calendar: Calendar {
