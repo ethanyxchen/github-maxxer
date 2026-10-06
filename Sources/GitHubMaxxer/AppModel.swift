@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import GitHubMaxxerCore
 import Observation
@@ -31,6 +32,13 @@ struct OrganizationPreferences: Codable {
   }
 }
 
+struct Landing: Equatable {
+  static let celebration: TimeInterval = 2.5
+  let pullRequests: Set<String>
+  let date: Date
+  let reveal: Date
+}
+
 private struct SavedState: Codable {
   var goals = Goals()
   var connections: [AccountConnection] = []
@@ -59,6 +67,7 @@ final class AppModel {
   private(set) var connectionErrors: [UUID: String] = [:]
   private(set) var storageError: String?
   private(set) var now = Date.now
+  private(set) var landing: Landing?
   let isPreview: Bool
   private let credentials: any CredentialStorage
   private let session: URLSession
@@ -95,6 +104,11 @@ final class AppModel {
   }
 
   var pullRequests: [MergedPullRequest] {
+    let pending = landing.flatMap { $0.reveal > now ? $0.pullRequests : nil } ?? []
+    return merged.filter { !pending.contains($0.id) }
+  }
+
+  private var merged: [MergedPullRequest] {
     let interval = Activity.historyInterval(endingAt: now)
     return Activity.mergedPullRequests(
       from: connections.map {
@@ -250,6 +264,7 @@ final class AppModel {
     isRefreshing = true
     defer { isRefreshing = false }
     let accounts = connections
+    let started = Date.now
     for account in accounts {
       if isConnecting { break }
       let requestedAt = Date.now
@@ -260,7 +275,9 @@ final class AppModel {
           login: account.profile.login, now: requestedAt)
         guard let index = connections.firstIndex(where: { $0.id == account.id }) else { continue }
         if connections[index].snapshot.fetchedAt <= snapshot.fetchedAt {
+          let known = Set(merged.map(\.id))
           connections[index].snapshot = snapshot
+          land(Set(merged.map(\.id)).subtracting(known), since: started)
         }
         connectionErrors[account.id] = nil
       } catch is CancellationError {
@@ -273,6 +290,24 @@ final class AppModel {
       }
     }
     persist()
+  }
+
+  private func land(_ arrived: Set<String>, since started: Date) {
+    guard !arrived.isEmpty else { return }
+    if let landing, landing.date >= started {
+      self.landing = Landing(
+        pullRequests: landing.pullRequests.union(arrived), date: landing.date,
+        reveal: landing.reveal)
+      return
+    }
+    let date = Date.now
+    let delay =
+      NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Landing.celebration
+    landing = Landing(pullRequests: arrived, date: date, reveal: date.addingTimeInterval(delay))
+    Task {
+      try? await Task.sleep(for: .seconds(delay))
+      now = .now
+    }
   }
 
   func startRefreshing() {

@@ -6,7 +6,7 @@ Set daily, weekly, and monthly targets. Connect multiple GitHub accounts, choose
 
 ## Run locally
 
-Requires macOS 26 or newer and Xcode 26 or newer with Swift 6.2.
+Requires macOS 26 or newer and Xcode 26 or newer with Swift 6.2. The hammer's textures, lighting and sounds are stored with [Git LFS](https://git-lfs.com), so run `git lfs install` before cloning, or `git lfs pull` in an existing clone.
 
 ```sh
 ./scripts/build-app.sh
@@ -103,3 +103,10 @@ swift run Hammertime --preview
 Use `--preview-dark` instead to inspect dark appearance without changing system settings.
 
 Regenerate the original app icon with `./scripts/update-icon.sh`.
+
+## Credits
+
+- ["Sledgehammer"](https://sketchfab.com/3d-models/sledgehammer-8194ce123fd64429b183c26df7fba17e) by Yaroslav Lazun, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- ["Studio Small 09"](https://polyhaven.com/a/studio_small_09) HDRI from Poly Haven, licensed under CC0.
+- ["Glass Shatter 1"](https://freesound.org/people/Greg_Surr/sounds/554565/) by Greg_Surr, licensed under CC0.
+- ["Sound Design Elements Impact SFX PS 089"](https://freesound.org/people/AudioPapkin/sounds/814883/) by AudioPapkin, licensed under CC0.

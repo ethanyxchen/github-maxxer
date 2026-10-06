@@ -11,6 +11,10 @@ require_app_stopped() {
   done < <(pgrep -x Hammertime || true)
 }
 require_app_stopped
+if grep -l '^version https://git-lfs.github.com/spec/v1' Sources/GitHubMaxxer/Resources/* >/dev/null; then
+  printf 'Hammer assets are Git LFS pointers. Run git lfs install && git lfs pull, then build again.\n' >&2
+  exit 1
+fi
 swift build -c release
 binary_directory="$(swift build -c release --show-bin-path)"
 mkdir -p "$PWD/build"
@@ -24,6 +28,7 @@ if [[ -n "${GITHUB_OAUTH_CLIENT_ID:-}" ]]; then
   plutil -replace GitHubOAuthClientID -string "$GITHUB_OAUTH_CLIENT_ID" "$app_bundle/Contents/Info.plist"
 fi
 cp Resources/AppIcon.icns "$app_bundle/Contents/Resources/AppIcon.icns"
+cp -R "$binary_directory/Hammertime_GitHubMaxxer.bundle" "$app_bundle/Contents/Resources/"
 plutil -lint "$app_bundle/Contents/Info.plist"
 codesign --force --sign "${CODESIGN_IDENTITY:-Apple Development}" "$app_bundle"
 codesign --verify --deep --strict "$app_bundle"

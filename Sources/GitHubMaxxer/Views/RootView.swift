@@ -96,6 +96,7 @@ struct RootView: View {
       }
     }
     .navigationSplitViewStyle(.balanced)
+    .overlay { HammerSlam(landing: model.landing) }
     .sheet(item: $connectionDraft) { draft in
       ConnectionSheet(existing: draft.existing)
         .environment(model)
