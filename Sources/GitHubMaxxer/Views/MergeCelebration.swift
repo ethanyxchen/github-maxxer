@@ -33,41 +33,58 @@ struct Choreography<Content: View>: View {
 
 struct HammerSlam: View {
   let landing: Landing?
-  @State private var page: (date: Date, layers: PageLayers)?
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  @Environment(\.appearsActive) private var appearsActive
 
   var body: some View {
-    if !reduceMotion {
-      Choreography(start: landing?.date, duration: Shatter.duration) { time in
-        Shatter(
-          time: time, seed: seed,
-          layers: page.flatMap { $0.date == landing?.date ? $0.layers : nil })
-        if time > Swing.entrance, time < Swing.timeline.duration {
-          let swing = Swing.timeline.value(time: time)
-          Sledgehammer(swing: swing).opacity(swing.opacity)
-        }
+    HammerShatter(landing: landing).overlay { HammerSwing(landing: landing) }
+  }
+}
+
+struct HammerSwing: View {
+  let landing: Landing?
+
+  var body: some View {
+    Choreography(start: landing?.slam, duration: Swing.timeline.duration) { time in
+      if time > Swing.entrance, time < Swing.timeline.duration {
+        let swing = Swing.timeline.value(time: time)
+        Sledgehammer(swing: swing).opacity(swing.opacity)
       }
-      .background {
-        PageCapture(date: landing?.date) { date, layers in page = (date, layers) }
-      }
-      .task(id: landing?.date) {
-        guard let date = landing?.date else { return }
-        if appearsActive { Soundtrack.shared.play(elapsed: -date.timeIntervalSinceNow) }
-        do {
-          try await Task.sleep(
-            for: .seconds(max(0, Shatter.duration + date.timeIntervalSinceNow)))
-        } catch { return }
-        page = nil
-      }
-      .task { _ = SledgehammerRig.shared }
-      .allowsHitTesting(false)
-      .accessibilityHidden(true)
     }
+    .task(id: landing?.slam) {
+      guard let date = landing?.slam else { return }
+      Soundtrack.shared.play(elapsed: -date.timeIntervalSinceNow)
+    }
+    .task { _ = SledgehammerRig.shared }
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
+}
+
+struct HammerShatter: View {
+  let landing: Landing?
+  @State private var page: (date: Date, layers: PageLayers)?
+
+  var body: some View {
+    Choreography(start: landing?.slam, duration: Shatter.duration) { time in
+      Shatter(
+        time: time, seed: seed,
+        layers: page.flatMap { $0.date == landing?.slam ? $0.layers : nil })
+    }
+    .background {
+      PageCapture(date: landing?.slam) { date, layers in page = (date, layers) }
+    }
+    .task(id: landing?.slam) {
+      guard let date = landing?.slam else { return }
+      do {
+        try await Task.sleep(for: .seconds(max(0, Shatter.duration + date.timeIntervalSinceNow)))
+      } catch { return }
+      page = nil
+    }
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
   }
 
   private var seed: Int {
-    landing.map { Int($0.date.timeIntervalSince1970 * 1000) % 9973 } ?? 0
+    landing?.slam.map { Int($0.timeIntervalSince1970 * 1000) % 9973 } ?? 0
   }
 }
 

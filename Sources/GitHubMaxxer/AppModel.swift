@@ -37,6 +37,23 @@ struct Landing: Equatable {
   let pullRequests: Set<String>
   let date: Date
   let reveal: Date
+
+  var slam: Date? { reveal > date ? date : nil }
+}
+
+extension Landing {
+  init(_ arrived: Set<String>, joining previous: Landing?, since started: Date) {
+    if let previous, previous.date >= started {
+      self.init(
+        pullRequests: previous.pullRequests.union(arrived), date: previous.date,
+        reveal: previous.reveal)
+    } else {
+      let date = Date.now
+      let delay =
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Landing.celebration
+      self.init(pullRequests: arrived, date: date, reveal: date.addingTimeInterval(delay))
+    }
+  }
 }
 
 enum WorkspaceColour: String, CaseIterable, Codable, Identifiable {
@@ -110,6 +127,8 @@ final class AppModel {
   private(set) var storageError: String?
   private(set) var now = Date.now
   private(set) var landing: Landing?
+  private var held: Landing?
+  private var isFocused = false
   let isPreview: Bool
   private let credentials: any CredentialStorage
   private let session: URLSession
@@ -149,8 +168,16 @@ final class AppModel {
 
   var pullRequests: [MergedPullRequest] {
     let pending = landing.flatMap { $0.reveal > now ? $0.pullRequests : nil } ?? []
-    return merged.filter { !pending.contains($0.id) }
+    let withheld = pending.union(held?.pullRequests ?? [])
+    return merged.filter { !withheld.contains($0.id) }
   }
+
+  var announced: [MergedPullRequest] {
+    let ids = held?.pullRequests ?? []
+    return merged.filter { ids.contains($0.id) }
+  }
+
+  var banner: Landing? { announced.isEmpty ? nil : held }
 
   private var merged: [MergedPullRequest] {
     let interval = Activity.historyInterval(endingAt: now)
@@ -250,8 +277,10 @@ final class AppModel {
   }
 
   func pullRequests(for filter: ActivityFilter) -> [MergedPullRequest] {
-    filter.pullRequests(in: pullRequests, personalLogins: Set(connections.map(\.profile.login)))
+    filter.pullRequests(in: pullRequests, personalLogins: personalLogins)
   }
+
+  private var personalLogins: Set<String> { Set(connections.map(\.profile.login)) }
 
   var trackedRepositoryCount: Int {
     Set(
@@ -270,14 +299,9 @@ final class AppModel {
   }
 
   func progress(for period: GoalPeriod, filter: ActivityFilter = .all) -> GoalProgress {
-    GoalProgress(
-      count: pullRequests(for: period, filter: filter).count, target: goals(for: filter)[period])
-  }
-
-  func pullRequests(for period: GoalPeriod, filter: ActivityFilter = .all)
-    -> [MergedPullRequest]
-  {
-    period.pullRequests(in: pullRequests(for: filter), now: now)
+    let pulls = filter.pullRequests(in: merged, personalLogins: personalLogins)
+    return GoalProgress(
+      count: period.pullRequests(in: pulls, now: now).count, target: goals(for: filter)[period])
   }
 
   func setScope(_ scope: RepositoryScope, for id: UUID) {
@@ -369,20 +393,25 @@ final class AppModel {
 
   private func land(_ arrived: Set<String>, since started: Date) {
     guard !arrived.isEmpty else { return }
-    if let landing, landing.date >= started {
-      self.landing = Landing(
-        pullRequests: landing.pullRequests.union(arrived), date: landing.date,
-        reveal: landing.reveal)
+    guard isFocused else {
+      held = Landing(arrived.union(held?.pullRequests ?? []), joining: held, since: started)
       return
     }
-    let date = Date.now
-    let delay =
-      NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Landing.celebration
-    landing = Landing(pullRequests: arrived, date: date, reveal: date.addingTimeInterval(delay))
+    let landing = Landing(arrived, joining: landing, since: started)
+    self.landing = landing
     Task {
-      try? await Task.sleep(for: .seconds(delay))
+      try? await Task.sleep(for: .seconds(max(0, landing.reveal.timeIntervalSinceNow)))
       now = .now
     }
+  }
+
+  func setFocused(_ focused: Bool) {
+    isFocused = focused
+    guard focused, let held else { return }
+    let date = Date.now
+    self.held = nil
+    landing = Landing(pullRequests: held.pullRequests, date: date, reveal: date)
+    now = date
   }
 
   func startRefreshing() {

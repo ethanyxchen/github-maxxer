@@ -55,6 +55,7 @@ struct ConnectionDraft: Identifiable {
 struct RootView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.appearsActive) private var appearsActive
   @State private var selection: Destination = .activity(.all)
   @State private var connectionDraft: ConnectionDraft?
   @State private var renaming: String?
@@ -149,6 +150,8 @@ struct RootView: View {
       }
     }
     .onAppear { model.startRefreshing() }
+    .onChange(of: appearsActive, initial: true) { _, active in model.setFocused(active) }
+    .onDisappear { model.setFocused(false) }
     .frame(minWidth: 920, minHeight: 680)
   }
 
