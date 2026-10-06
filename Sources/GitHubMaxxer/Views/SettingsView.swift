@@ -8,36 +8,19 @@ struct SettingsView: View {
   @State private var removing: AccountConnection?
   @State private var removalError: String?
 
-  private var dailyGoal: Binding<Int> {
-    Binding(get: { model.goals.daily }, set: { model.setDailyGoal($0) })
-  }
-
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
         SettingsSection(
-          "Merged PR targets",
+          "Daily merged PR targets",
           footer:
-            "Weekly and monthly targets follow your daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
+            "Set a target for Personal and each organisation, or 0 for none. All activity adds them together. Right-click Personal or an organisation in the sidebar to change its colour. Weekly and monthly targets follow the daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
         ) {
-          ForEach(GoalPeriod.allCases) { period in
-            HStack {
-              Text(period.targetLabel)
-              Spacer()
-              if period == .day {
-                TextField("Pull requests", value: dailyGoal, format: .number.grouping(.never))
-                  .labelsHidden().accessibilityLabel(period.targetLabel)
-                  .textFieldStyle(.plain)
-                  .multilineTextAlignment(.trailing).frame(width: 56)
-                  .monospacedDigit()
-                Stepper(period.targetLabel, value: dailyGoal, in: Goals.dailyRange)
-                  .labelsHidden().fixedSize()
-              } else {
-                Text(model.goals[period], format: .number.grouping(.never))
-                  .monospacedDigit()
-              }
-              Text("PRs").foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
-            }
+          ForEach(model.workspaces, id: \.self) { TargetRow(workspace: $0) }
+          LabeledContent(ActivityFilter.all.title) {
+            let total = model.goals(for: .all)
+            Text("\(total.daily) a day · \(total.weekly) a week · \(total.monthly) a month")
+              .monospacedDigit()
           }
         }
         SettingsSection(
@@ -183,5 +166,50 @@ private struct ConnectionNameField: View {
         if !focused { model.rename(name, id: connection.id) }
       }
       .onDisappear { model.rename(name, id: connection.id) }
+  }
+}
+
+private struct TargetRow: View {
+  @Environment(AppModel.self) private var model
+  let workspace: ActivityFilter
+  @State private var text = ""
+  @FocusState private var isFocused: Bool
+
+  private var daily: Int { model.goals(for: workspace).daily }
+
+  var body: some View {
+    let label = "\(model.title(for: workspace)) daily target"
+    HStack {
+      RoundedRectangle(cornerRadius: 2).fill(Palette.colour(model.colour(for: workspace)))
+        .frame(width: 10, height: 10).accessibilityHidden(true)
+      Text(model.title(for: workspace))
+      Spacer()
+      TextField("Pull requests", text: $text)
+        .labelsHidden().accessibilityLabel(label)
+        .textFieldStyle(.plain)
+        .multilineTextAlignment(.trailing).frame(width: 56)
+        .monospacedDigit()
+        .focused($isFocused)
+        .onSubmit(commit)
+        .onChange(of: isFocused) { _, focused in
+          if !focused { commit() }
+        }
+        .onChange(of: daily, initial: true) { text = String(daily) }
+        .onDisappear(perform: commit)
+      Stepper(
+        label,
+        value: Binding(get: { daily }, set: { model.setDailyGoal($0, for: workspace) }),
+        in: Goals.dailyRange
+      )
+      .labelsHidden().fixedSize()
+      Text("PRs").foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
+    }
+  }
+
+  private func commit() {
+    if let value = Int(text.trimmingCharacters(in: .whitespaces)), value != daily {
+      model.setDailyGoal(value, for: workspace)
+    }
+    text = String(daily)
   }
 }

@@ -13,14 +13,6 @@ public enum GoalPeriod: String, CaseIterable, Codable, Sendable, Identifiable {
     }
   }
 
-  public var targetLabel: String {
-    switch self {
-    case .day: "Daily target"
-    case .week: "Weekly target"
-    case .month: "Monthly target"
-    }
-  }
-
   public func interval(containing date: Date, calendar: Calendar = .current) -> DateInterval {
     var calendar = calendar
     calendar.firstWeekday = 2
@@ -62,13 +54,17 @@ public enum GoalPeriod: String, CaseIterable, Codable, Sendable, Identifiable {
 }
 
 public struct Goals: Codable, Sendable, Equatable {
-  public static let dailyRange = 1...10_000
+  public static let dailyRange = 0...10_000
   public let daily: Int
   public var weekly: Int { daily * 5 }
   public var monthly: Int { daily * 20 }
 
   public init(daily: Int = 1) {
-    self.daily = min(Self.dailyRange.upperBound, max(Self.dailyRange.lowerBound, daily))
+    self.daily = daily
+  }
+
+  public init(clamping daily: Int) {
+    self.init(daily: daily.clamped(to: Self.dailyRange))
   }
 
   public subscript(period: GoalPeriod) -> Int {
@@ -77,6 +73,12 @@ public struct Goals: Codable, Sendable, Equatable {
     case .week: weekly
     case .month: monthly
     }
+  }
+}
+
+extension Comparable {
+  fileprivate func clamped(to range: ClosedRange<Self>) -> Self {
+    min(range.upperBound, max(range.lowerBound, self))
   }
 }
 

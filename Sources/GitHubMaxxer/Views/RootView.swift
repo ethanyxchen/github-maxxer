@@ -42,7 +42,7 @@ struct RootView: View {
       List(selection: $selection) {
         section("Activity") {
           row(.activity(.all))
-          row(.activity(.personal))
+          row(.activity(.personal)).contextMenu { colourMenu(.personal) }
           ForEach(model.sidebarOrganizations, id: \.self) { owner in
             row(.activity(.organization(owner))).contextMenu { organizationMenu(owner) }
           }
@@ -136,7 +136,7 @@ struct RootView: View {
 
   private func row(_ destination: Destination) -> some View {
     SidebarRow(
-      destination: destination, title: title(for: destination),
+      destination: destination, title: title(for: destination), tint: tint(for: destination),
       isPinned: isPinned(destination), isSelected: selection == destination
     )
     .tag(destination)
@@ -145,8 +145,13 @@ struct RootView: View {
   }
 
   private func title(for destination: Destination) -> String {
-    guard case .activity(.organization(let owner)) = destination else { return destination.title }
-    return model.displayName(for: owner)
+    guard case .activity(let filter) = destination else { return destination.title }
+    return model.title(for: filter)
+  }
+
+  private func tint(for destination: Destination) -> Color {
+    guard case .activity(let filter) = destination, filter != .all else { return Palette.secondary }
+    return Palette.colour(model.colour(for: filter))
   }
 
   private func isPinned(_ destination: Destination) -> Bool {
@@ -154,8 +159,25 @@ struct RootView: View {
     return model.isPinned(owner)
   }
 
+  private func colourMenu(_ workspace: ActivityFilter) -> some View {
+    Picker(
+      "Colour",
+      selection: Binding(
+        get: { model.colour(for: workspace) },
+        set: { if let colour = $0 { model.setColour(colour, for: workspace) } })
+    ) {
+      ForEach(WorkspaceColour.allCases) { colour in
+        Label(colour.title, systemImage: "circle.fill").tint(Palette.colour(colour))
+          .tag(Optional(colour))
+      }
+    }
+    .pickerStyle(.palette)
+  }
+
   @ViewBuilder
   private func organizationMenu(_ owner: String) -> some View {
+    colourMenu(.organization(owner))
+    Divider()
     Button(model.isPinned(owner) ? "Unpin" : "Pin to Top") {
       model.setPinned(!model.isPinned(owner), organization: owner)
     }
@@ -245,6 +267,7 @@ struct RootView: View {
 private struct SidebarRow: View {
   let destination: Destination
   let title: String
+  let tint: Color
   let isPinned: Bool
   let isSelected: Bool
   @State private var isHovering = false
@@ -253,7 +276,7 @@ private struct SidebarRow: View {
     HStack(spacing: 10) {
       Image(systemName: destination.symbol)
         .frame(width: 18)
-        .foregroundStyle(isSelected ? Palette.panel : Palette.secondary)
+        .foregroundStyle(isSelected ? Palette.panel : tint)
       Text(title).lineLimit(1)
       Spacer(minLength: 0)
       if isPinned {

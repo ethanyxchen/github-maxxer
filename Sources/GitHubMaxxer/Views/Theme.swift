@@ -12,6 +12,18 @@ enum Palette {
   static let reached = dynamic(light: 0x3FAE62, dark: 0x2F9E55)
   static let over = dynamic(light: 0x0E6B35, dark: 0x7CF0A2)
 
+  static func colour(_ colour: WorkspaceColour?) -> Color {
+    switch colour {
+    case nil: ink
+    case .terracotta: dynamic(light: 0xB8613A, dark: 0xE08A60)
+    case .ochre: dynamic(light: 0xB88A1F, dark: 0xE0B44A)
+    case .plum: dynamic(light: 0x84507A, dark: 0xC188B5)
+    case .slate: dynamic(light: 0x587089, dark: 0x8FA8C2)
+    case .rosewood: dynamic(light: 0xA85A62, dark: 0xD88A92)
+    case .umber: dynamic(light: 0x7A6650, dark: 0xC2A88A)
+    }
+  }
+
   private static func dynamic(light: UInt32, dark: UInt32) -> Color {
     Color(
       nsColor: NSColor(name: nil) { appearance in
@@ -77,17 +89,36 @@ struct Lamp: View {
   }
 }
 
+struct MeterShare: Identifiable {
+  let id: AnyHashable
+  let title: String
+  let count: Int
+  let target: Int
+  let color: Color
+}
+
 struct SegmentMeter: View {
   let count: Int
   let target: Int
   var pace: Int?
+  var tint = Palette.ink
+  var shares: [MeterShare] = []
   var height: CGFloat = 18
 
   private var scale: Int { max(target, count) }
   private var segments: Int { max(1, min(scale, 60)) }
+  private var perSegment: Double { Double(scale) / Double(segments) }
+  private var isShared: Bool { !shares.isEmpty }
 
   var body: some View {
-    let perSegment = Double(scale) / Double(segments)
+    VStack(alignment: .leading, spacing: 14) {
+      bar
+      if shares.count > 1 { legend }
+    }
+    .accessibilityHidden(true)
+  }
+
+  private var bar: some View {
     HStack(spacing: segments > 30 ? 2 : 3) {
       ForEach(0..<segments, id: \.self) { index in
         RoundedRectangle(cornerRadius: 1).fill(color(end: Double(index + 1) * perSegment))
@@ -104,13 +135,38 @@ struct SegmentMeter: View {
         }
       }
     }
-    .accessibilityHidden(true)
+  }
+
+  private var legend: some View {
+    LazyVGrid(
+      columns: [GridItem(.adaptive(minimum: 140), spacing: 16, alignment: .leading)],
+      alignment: .leading, spacing: 6
+    ) {
+      ForEach(shares) { share in
+        HStack(spacing: 6) {
+          RoundedRectangle(cornerRadius: 1).fill(share.color).frame(width: 8, height: 8)
+          Text("\(share.title) \(share.count)/\(share.target)").lineLimit(1)
+        }
+        .help("\(share.title): \(share.count) of \(share.target)")
+      }
+    }
+    .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Palette.secondary)
   }
 
   private func color(end: Double) -> Color {
     guard Double(count) >= end - 0.001 else { return Palette.empty }
+    if isShared { return shareColor(at: end - perSegment / 2) }
     if end > Double(target) + 0.001 { return Palette.over }
-    return count >= target ? Palette.reached : Palette.ink
+    return count >= target ? Palette.reached : tint
+  }
+
+  private func shareColor(at position: Double) -> Color {
+    var end = 0.0
+    for share in shares {
+      end += Double(share.count)
+      if position < end { return share.color }
+    }
+    return Palette.empty
   }
 }
 
