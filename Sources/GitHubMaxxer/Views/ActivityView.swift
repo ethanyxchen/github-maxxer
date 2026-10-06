@@ -269,15 +269,18 @@ private struct PullRequestRow: View {
 
   private var content: some View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
-      VStack(alignment: .leading, spacing: 3) {
-        Text(pull.title).fontWeight(.medium).foregroundStyle(Palette.ink).lineLimit(1)
-          .help(pull.title)
-        Text("#\(String(pull.number)) · \(pull.repository.nameWithOwner)")
-          .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
-          .lineLimit(1)
+      HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 3) {
+          Text(pull.title).fontWeight(.medium).foregroundStyle(Palette.ink).lineLimit(1)
+            .help(pull.title)
+          Text("#\(String(pull.number)) · \(pull.repository.nameWithOwner)")
+            .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
+            .lineLimit(1)
+        }
+        Spacer(minLength: 12)
+        if let landing { MergedStamp(landing: landing) }
       }
-      Spacer(minLength: 12)
-      if let landing { MergedStamp(landing: landing) }
+      .fixedSize(horizontal: false, vertical: true)
       Text(pull.mergedAt, format: .dateTime.hour().minute())
         .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
         .help(pull.mergedAt.formatted(date: .complete, time: .shortened))
