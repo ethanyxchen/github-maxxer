@@ -130,6 +130,20 @@ struct AppModelTests {
         == GoalPeriod.month.count(in: work, now: model.now))
   }
 
+  @Test func allActivityIsReachedOnlyWhenEveryWorkspaceTargetIsMet() throws {
+    let model = AppModel(preview: true)
+    let pulls = model.pullRequests
+    let work = model.pullRequests(for: .organization("northstar")).count
+    try #require(model.pullRequests(for: .personal).count >= 2)
+    model.setDailyGoal(1, for: .personal)
+    model.setDailyGoal(work + 1, for: .organization("northstar"))
+    #expect(pulls.count >= model.goals(for: .all).daily)
+    #expect(!model.isReached(.day, in: pulls, filter: .all))
+    #expect(model.isReached(.day, in: pulls, filter: .personal))
+    model.setDailyGoal(work, for: .organization("northstar"))
+    #expect(model.isReached(.day, in: pulls, filter: .all))
+  }
+
   @Test func sidebarOrganizationsKeepPinsHiddenOwnersAndLocalNames() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
