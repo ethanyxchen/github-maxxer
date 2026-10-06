@@ -166,8 +166,12 @@ struct RootView: View {
         get: { model.colour(for: workspace) },
         set: { if let colour = $0 { model.setColour(colour, for: workspace) } })
     ) {
-      ForEach(WorkspaceColour.allCases) { Text($0.title).tag(Optional($0)) }
+      ForEach(WorkspaceColour.allCases) { colour in
+        Label(colour.title, systemImage: "circle.fill").tint(Palette.colour(colour))
+          .tag(Optional(colour))
+      }
     }
+    .pickerStyle(.palette)
   }
 
   @ViewBuilder
