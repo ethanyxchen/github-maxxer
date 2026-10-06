@@ -11,6 +11,18 @@ enum Palette {
   static let empty = dynamic(light: 0xD2D5CF, dark: 0x292D29)
   static let reached = dynamic(light: 0x3FAE62, dark: 0x2F9E55)
   static let over = dynamic(light: 0x0E6B35, dark: 0x7CF0A2)
+  private static let accents = [
+    dynamic(light: 0x3D6FD9, dark: 0x6E9BFF),
+    dynamic(light: 0xD9822B, dark: 0xF0A050),
+    dynamic(light: 0x8A5CD1, dark: 0xB28CFF),
+    dynamic(light: 0x1C9A9A, dark: 0x4FD1D1),
+    dynamic(light: 0xD0476E, dark: 0xFF7A9C),
+    dynamic(light: 0xA88A1E, dark: 0xD9BC4A),
+  ]
+
+  static func share(_ index: Int) -> Color {
+    index == 0 ? ink : accents[(index - 1) % accents.count]
+  }
 
   private static func dynamic(light: UInt32, dark: UInt32) -> Color {
     Color(
@@ -79,115 +91,81 @@ struct Lamp: View {
 
 struct MeterShare: Identifiable {
   let id: AnyHashable
-  var title: String?
+  let title: String
   let count: Int
   let target: Int
-  var pace: Int?
-
-  var scale: Int { max(target, count) }
+  let color: Color
 }
 
 struct SegmentMeter: View {
-  let shares: [MeterShare]
+  let count: Int
+  let target: Int
+  var pace: Int?
+  var shares: [MeterShare] = []
   var height: CGFloat = 18
 
-  init(count: Int, target: Int, pace: Int? = nil, height: CGFloat = 18) {
-    self.init(
-      shares: [MeterShare(id: "", count: count, target: target, pace: pace)], height: height)
-  }
-
-  init(shares: [MeterShare], height: CGFloat = 18) {
-    let visible = shares.filter { $0.scale > 0 }
-    self.shares = visible.isEmpty ? Array(shares.prefix(1)) : visible
-    self.height = height
-  }
-
-  private var total: Int { shares.map(\.scale).reduce(0, +) }
-  private var segments: Int { max(1, min(total, 60)) }
+  private var scale: Int { max(target, count) }
+  private var segments: Int { max(1, min(scale, 60)) }
+  private var perSegment: Double { Double(scale) / Double(segments) }
+  private var isShared: Bool { shares.count > 1 }
 
   var body: some View {
-    let spacing: CGFloat = segments > 30 ? 2 : 3
-    ProportionalStack(weights: shares.map { max($0.scale, 1) }, spacing: spacing * 4) {
-      ForEach(shares) { share in
-        VStack(alignment: .leading, spacing: 12) {
-          ShareBar(
-            share: share,
-            segments: max(
-              1, Int((Double(segments * share.scale) / Double(max(total, 1))).rounded())),
-            spacing: spacing, height: height)
-          if let title = share.title {
-            Text("\(title) \(share.count)/\(share.target)")
-              .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Palette.secondary)
-              .lineLimit(1).help("\(title): \(share.count) of \(share.target)")
-          }
-        }
-      }
+    VStack(alignment: .leading, spacing: 14) {
+      bar
+      if isShared { legend }
     }
     .accessibilityHidden(true)
   }
-}
 
-private struct ShareBar: View {
-  let share: MeterShare
-  let segments: Int
-  let spacing: CGFloat
-  let height: CGFloat
-
-  var body: some View {
-    let perSegment = Double(share.scale) / Double(segments)
-    HStack(spacing: spacing) {
+  private var bar: some View {
+    HStack(spacing: segments > 30 ? 2 : 3) {
       ForEach(0..<segments, id: \.self) { index in
         RoundedRectangle(cornerRadius: 1).fill(color(end: Double(index + 1) * perSegment))
       }
     }
     .frame(height: height)
     .overlay {
-      if let pace = share.pace, share.scale > 0 {
+      if let pace, scale > 0 {
         GeometryReader { geometry in
           Triangle().fill(Palette.ink)
             .frame(width: 8, height: 5)
             .position(
-              x: geometry.size.width * Double(pace) / Double(share.scale),
-              y: geometry.size.height + 6)
+              x: geometry.size.width * Double(pace) / Double(scale), y: geometry.size.height + 6)
         }
       }
     }
   }
 
-  private func color(end: Double) -> Color {
-    guard Double(share.count) >= end - 0.001 else { return Palette.empty }
-    if end > Double(share.target) + 0.001 { return Palette.over }
-    return share.count >= share.target ? Palette.reached : Palette.ink
-  }
-}
-
-private struct ProportionalStack: Layout {
-  let weights: [Int]
-  let spacing: CGFloat
-
-  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-    let widths = self.widths(proposal.width ?? 0)
-    let height = zip(subviews, widths).map {
-      $0.sizeThatFits(ProposedViewSize(width: $1, height: nil)).height
-    }.max()
-    return CGSize(width: proposal.width ?? 0, height: height ?? 0)
-  }
-
-  func placeSubviews(
-    in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
-  ) {
-    var x = bounds.minX
-    for (subview, width) in zip(subviews, widths(bounds.width)) {
-      subview.place(
-        at: CGPoint(x: x, y: bounds.minY), proposal: ProposedViewSize(width: width, height: nil))
-      x += width + spacing
+  private var legend: some View {
+    LazyVGrid(
+      columns: [GridItem(.adaptive(minimum: 140), spacing: 16, alignment: .leading)],
+      alignment: .leading, spacing: 6
+    ) {
+      ForEach(shares) { share in
+        HStack(spacing: 6) {
+          RoundedRectangle(cornerRadius: 1).fill(share.color).frame(width: 8, height: 8)
+          Text("\(share.title) \(share.count)/\(share.target)").lineLimit(1)
+        }
+        .help("\(share.title): \(share.count) of \(share.target)")
+      }
     }
+    .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Palette.secondary)
   }
 
-  private func widths(_ width: CGFloat) -> [CGFloat] {
-    let available = max(width - spacing * CGFloat(weights.count - 1), 0)
-    let total = CGFloat(weights.reduce(0, +))
-    return weights.map { available * CGFloat($0) / total }
+  private func color(end: Double) -> Color {
+    guard Double(count) >= end - 0.001 else { return Palette.empty }
+    if isShared { return shareColor(at: end - perSegment / 2) }
+    if end > Double(target) + 0.001 { return Palette.over }
+    return count >= target ? Palette.reached : Palette.ink
+  }
+
+  private func shareColor(at position: Double) -> Color {
+    var end = 0.0
+    for share in shares {
+      end += Double(share.count)
+      if position < end { return share.color }
+    }
+    return Palette.empty
   }
 }
 

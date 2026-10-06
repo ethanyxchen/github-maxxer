@@ -8,12 +8,6 @@ struct SettingsView: View {
   @State private var removing: AccountConnection?
   @State private var removalError: String?
 
-  private func dailyGoal(_ workspace: ActivityFilter) -> Binding<Int> {
-    Binding(
-      get: { model.goals(for: workspace).daily },
-      set: { model.setDailyGoal($0, for: workspace) })
-  }
-
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
@@ -22,25 +16,7 @@ struct SettingsView: View {
           footer:
             "Set a target for Personal and each organisation, or 0 for none. All activity adds them together. Weekly and monthly targets follow the daily target: 5 days per week and 20 days per month. PRs count on their merge date, using your Mac's time zone. Weeks run Monday through Sunday. Each PR counts once across all connections."
         ) {
-          ForEach(model.workspaces, id: \.self) { workspace in
-            HStack {
-              Text(model.title(for: workspace))
-              Spacer()
-              TextField(
-                "Pull requests", value: dailyGoal(workspace), format: .number.grouping(.never)
-              )
-              .labelsHidden().accessibilityLabel("\(model.title(for: workspace)) daily target")
-              .textFieldStyle(.plain)
-              .multilineTextAlignment(.trailing).frame(width: 56)
-              .monospacedDigit()
-              Stepper(
-                "\(model.title(for: workspace)) daily target", value: dailyGoal(workspace),
-                in: Goals.dailyRange
-              )
-              .labelsHidden().fixedSize()
-              Text("PRs").foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
-            }
-          }
+          ForEach(model.workspaces, id: \.self) { TargetRow(workspace: $0) }
           LabeledContent(ActivityFilter.all.title) {
             let total = model.goals(for: .all)
             Text("\(total.daily) a day · \(total.weekly) a week · \(total.monthly) a month")
@@ -190,5 +166,48 @@ private struct ConnectionNameField: View {
         if !focused { model.rename(name, id: connection.id) }
       }
       .onDisappear { model.rename(name, id: connection.id) }
+  }
+}
+
+private struct TargetRow: View {
+  @Environment(AppModel.self) private var model
+  let workspace: ActivityFilter
+  @State private var text = ""
+  @FocusState private var isFocused: Bool
+
+  private var daily: Int { model.goals(for: workspace).daily }
+
+  var body: some View {
+    let label = "\(model.title(for: workspace)) daily target"
+    HStack {
+      Text(model.title(for: workspace))
+      Spacer()
+      TextField("Pull requests", text: $text)
+        .labelsHidden().accessibilityLabel(label)
+        .textFieldStyle(.plain)
+        .multilineTextAlignment(.trailing).frame(width: 56)
+        .monospacedDigit()
+        .focused($isFocused)
+        .onSubmit(commit)
+        .onChange(of: isFocused) { _, focused in
+          if !focused { commit() }
+        }
+        .onChange(of: daily, initial: true) { text = String(daily) }
+        .onDisappear(perform: commit)
+      Stepper(
+        label,
+        value: Binding(get: { daily }, set: { model.setDailyGoal($0, for: workspace) }),
+        in: Goals.dailyRange
+      )
+      .labelsHidden().fixedSize()
+      Text("PRs").foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
+    }
+  }
+
+  private func commit() {
+    if let value = Int(text.trimmingCharacters(in: .whitespaces)), value != daily {
+      model.setDailyGoal(value, for: workspace)
+    }
+    text = String(daily)
   }
 }

@@ -59,7 +59,7 @@ The build embeds the public Client ID in the app bundle; the environment variabl
 ## How activity is counted
 
 - Set a daily PR target for **Personal** and each organisation in **Targets & Accounts**, or 0 for none. **All activity** targets the sum of them, including organisations removed from the sidebar. Weekly and monthly targets update automatically using 5 days per week and 20 days per month: a daily target of 3 gives weekly and monthly targets of 15 and 60.
-- On **All activity**, each meter is split into one labelled group per organisation, each filled against its own target with its own pace marker, so you can compare progress across them at a glance. PRs in repositories that are neither yours nor an organisation's appear as **Other**.
+- On **All activity**, each meter fills in a different colour for Personal and each organisation, with a legend showing each one's count against its own target. PRs in repositories that are neither yours nor an organisation's appear as **Other**.
 - The activity view leads with today's count against your target, then week and month meters. Below them, merged PRs are listed by day with that day's count against the daily target, starting with the last 7 days. **Older** and **Newer** step through the 90-day history a week at a time. Search looks through all 90 days by title, repository, or PR number.
 - While a week or month target is unmet, a marker shows where you should be after the weekdays elapsed so far, and the note says how far ahead or behind pace you are.
 - Targets count PRs **you authored**, using the time they were **merged**, including merges performed by someone else. Closed but unmerged PRs do not count.

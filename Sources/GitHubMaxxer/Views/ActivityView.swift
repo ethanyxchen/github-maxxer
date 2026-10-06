@@ -66,31 +66,23 @@ struct ActivityView: View {
   }
 
   private func shares(_ period: GoalPeriod, in pulls: [MergedPullRequest]) -> [MeterShare] {
-    guard filter == .all else {
-      let progress = progress(period, in: pulls)
-      return [share("", title: nil, progress, period)]
-    }
-    let workspaces = model.workspaces.map { workspace in
-      share(
-        workspace, title: model.title(for: workspace),
-        GoalProgress(
-          count: period.count(in: model.pullRequests(for: workspace), now: model.now),
-          target: model.goals(for: workspace)[period]),
-        period)
+    guard filter == .all else { return [] }
+    let workspaces = model.workspaces.enumerated().map { index, workspace in
+      MeterShare(
+        id: workspace, title: model.title(for: workspace),
+        count: period.count(in: model.pullRequests(for: workspace), now: model.now),
+        target: model.goals(for: workspace)[period], color: Palette.share(index))
     }
     let other = period.count(in: pulls, now: model.now) - workspaces.map(\.count).reduce(0, +)
-    return workspaces
-      + (other > 0
-        ? [share("other", title: "Other", GoalProgress(count: other, target: 0), period)] : [])
+    return
+      (workspaces
+      + [MeterShare(id: "other", title: "Other", count: other, target: 0, color: Palette.secondary)])
+      .filter { $0.count > 0 || $0.target > 0 }
   }
 
-  private func share(
-    _ id: AnyHashable, title: String?, _ progress: GoalProgress, _ period: GoalPeriod
-  ) -> MeterShare {
-    MeterShare(
-      id: id, title: title, count: progress.count, target: progress.target,
-      pace: period == .day || progress.isComplete || progress.target == 0
-        ? nil : period.pace(target: progress.target, now: model.now))
+  private func pace(_ period: GoalPeriod, _ progress: GoalProgress) -> Int? {
+    period == .day || progress.isComplete || progress.target == 0
+      ? nil : period.pace(target: progress.target, now: model.now)
   }
 
   private func today(_ progress: GoalProgress, shares: [MeterShare]) -> some View {
@@ -100,7 +92,7 @@ struct ActivityView: View {
         Text(padded(progress.count)).font(.readout(64))
         Text("/ \(padded(progress.target))").font(.readout(22)).foregroundStyle(Palette.secondary)
       }
-      SegmentMeter(shares: shares)
+      SegmentMeter(count: progress.count, target: progress.target, shares: shares)
       HStack(spacing: 8) {
         Lamp(isOn: progress.isComplete)
         Text(status(progress)).font(.system(size: 12, design: .monospaced))
@@ -124,7 +116,9 @@ struct ActivityView: View {
         Spacer()
         Text("\(padded(progress.count)) / \(padded(progress.target))").font(.readout(14))
       }
-      SegmentMeter(shares: shares, height: 14)
+      SegmentMeter(
+        count: progress.count, target: progress.target, pace: pace(period, progress),
+        shares: shares, height: 14)
       Text(note(period, progress)).font(.system(size: 11, design: .monospaced))
         .foregroundStyle(Palette.secondary).padding(.top, 4)
     }
@@ -215,9 +209,7 @@ struct ActivityView: View {
   }
 
   private func breakdown(_ shares: [MeterShare]) -> String {
-    shares.compactMap { share in
-      share.title.map { ". \($0): \(share.count) of \(share.target)" }
-    }.joined()
+    shares.map { ". \($0.title): \($0.count) of \($0.target)" }.joined()
   }
 
   private func status(_ progress: GoalProgress) -> String {
