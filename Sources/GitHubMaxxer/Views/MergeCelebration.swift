@@ -354,10 +354,10 @@ private struct StampScene: View {
       Text("Merged").textCase(.uppercase).tracking(1.8)
     }
     .font(.system(size: 12, weight: .heavy, design: .monospaced))
-    .foregroundStyle(Palette.reached)
+    .foregroundStyle(Palette.merged)
     .padding(.horizontal, 10)
     .frame(maxHeight: .infinity)
-    .overlay { CropBrackets().stroke(Palette.reached, lineWidth: 1.5).padding(0.75) }
+    .overlay { CropBrackets().stroke(Palette.merged, lineWidth: 1.5).padding(0.75) }
     .mask {
       Rectangle().scaleEffect(x: min(max(time / Self.sweepDuration, 0), 1), anchor: .leading)
     }
@@ -381,7 +381,7 @@ private struct StampScene: View {
       context.fill(
         Sparkle().path(
           in: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
-        with: .color(Palette.reached.opacity(1 - age)))
+        with: .color(Palette.merged.opacity(1 - age)))
     }
   }
 }
