@@ -8,6 +8,7 @@ final class MergeBanner {
   fileprivate static let stage = CGSize(width: 640, height: 420)
   private static let margin = 12.0
   private static let lifetime = 8.0
+  fileprivate static let exit = 0.35
   private let model: AppModel
   private let panel = NSPanel(
     contentRect: CGRect(origin: .zero, size: stage), styleMask: [.borderless, .nonactivatingPanel],
@@ -42,7 +43,10 @@ final class MergeBanner {
   private func present(_ banner: Landing?) {
     guard let banner else {
       shown = nil
-      panel.orderOut(nil)
+      Task {
+        try? await Task.sleep(for: .seconds(Self.exit))
+        if shown == nil { panel.orderOut(nil) }
+      }
       return
     }
     guard banner.date != shown, let screen = NSScreen.main else { return }
@@ -93,10 +97,14 @@ private struct BannerStage: View {
           .position(
             x: MergeBanner.stage.width / 2, y: MergeBanner.stage.height * Slam.impactHeight
           )
+          .transition(
+            .asymmetric(
+              insertion: .identity, removal: .move(edge: .trailing).combined(with: .opacity)))
         HammerSwing(landing: banner)
       }
     }
     .frame(width: MergeBanner.stage.width, height: MergeBanner.stage.height)
+    .animation(.easeIn(duration: MergeBanner.exit), value: model.banner == nil)
   }
 }
 
