@@ -9,8 +9,8 @@ enum Palette {
   static let secondary = dynamic(light: 0x5C615B, dark: 0x8C928A)
   static let rule = dynamic(light: 0xC1C5BE, dark: 0x2E322E)
   static let empty = dynamic(light: 0xD2D5CF, dark: 0x292D29)
-  static let reached = dynamic(light: 0x3FAE62, dark: 0x2F9E55)
-  static let over = dynamic(light: 0x0E6B35, dark: 0x7CF0A2)
+  static let reached = dynamic(light: 0x6E9150, dark: 0x9BB87A)
+  static let over = dynamic(light: 0x435E30, dark: 0xC4DCA2)
 
   static func colour(_ colour: WorkspaceColour?) -> Color {
     switch colour {
