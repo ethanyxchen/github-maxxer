@@ -6,7 +6,7 @@ Set daily, weekly, and monthly targets. Connect multiple GitHub accounts, choose
 
 ## Run locally
 
-Requires macOS 26 or newer and Xcode 26 or newer with Swift 6.2.
+Requires macOS 26 or newer and Xcode 26 or newer with Swift 6.2. The hammer's textures, lighting and sounds are stored with [Git LFS](https://git-lfs.com), so run `git lfs install` before cloning, or `git lfs pull` in an existing clone.
 
 ```sh
 ./scripts/build-app.sh
