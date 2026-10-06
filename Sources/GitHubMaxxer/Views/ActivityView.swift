@@ -98,13 +98,13 @@ struct ActivityView: View {
         tint: Palette.colour(model.colour(for: filter)), shares: shares)
       HStack(spacing: 8) {
         Lamp(isOn: progress.isComplete && shares.allSatisfy(\.isMet))
-        Text(status(progress)).font(.system(size: 12, design: .monospaced))
+        Text(status(progress, shares)).font(.system(size: 12, design: .monospaced))
           .foregroundStyle(Palette.secondary)
       }
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
-      "Today: \(progress.count) merged PRs, target \(progress.target). \(status(progress))\(breakdown(shares))"
+      "Today: \(progress.count) merged PRs, target \(progress.target). \(status(progress, shares))\(breakdown(shares))"
     )
   }
 
@@ -122,12 +122,12 @@ struct ActivityView: View {
       SegmentMeter(
         count: progress.count, target: progress.target, pace: pace(period, progress),
         tint: Palette.colour(model.colour(for: filter)), shares: shares, height: 14)
-      Text(note(period, progress)).font(.system(size: 11, design: .monospaced))
+      Text(note(period, progress, shares)).font(.system(size: 11, design: .monospaced))
         .foregroundStyle(Palette.secondary).padding(.top, 4)
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
-      "\(period.title): \(progress.count) merged PRs, target \(progress.target). \(note(period, progress))\(breakdown(shares))"
+      "\(period.title): \(progress.count) merged PRs, target \(progress.target). \(note(period, progress, shares))\(breakdown(shares))"
     )
   }
 
@@ -211,20 +211,29 @@ struct ActivityView: View {
     return day.formatted(.dateTime.weekday(.wide).day().month(.abbreviated))
   }
 
+  private func behind(_ shares: [MeterShare]) -> String? {
+    let behind = shares.filter { !$0.isMet }
+    guard !behind.isEmpty else { return nil }
+    return behind.map { "\($0.title) \($0.target - $0.count) to go" }.joined(separator: " · ")
+  }
+
   private func breakdown(_ shares: [MeterShare]) -> String {
     shares.map { ". \($0.title): \($0.count) of \($0.target)" }.joined()
   }
 
-  private func status(_ progress: GoalProgress) -> String {
+  private func status(_ progress: GoalProgress, _ shares: [MeterShare]) -> String {
     if progress.target == 0 { return "No target" }
     guard progress.isComplete else { return "\(progress.remaining) to go" }
+    if let behind = behind(shares) { return behind }
     let over = progress.count - progress.target
     return over > 0 ? "Target reached · \(over) over" : "Target reached"
   }
 
-  private func note(_ period: GoalPeriod, _ progress: GoalProgress) -> String {
+  private func note(_ period: GoalPeriod, _ progress: GoalProgress, _ shares: [MeterShare])
+    -> String
+  {
     if progress.target == 0 { return "No target" }
-    if progress.isComplete { return "Target reached" }
+    if progress.isComplete { return behind(shares) ?? "Target reached" }
     let delta = progress.count - period.pace(target: progress.target, now: model.now)
     if delta > 0 { return "\(delta) ahead of pace" }
     if delta < 0 { return "\(-delta) behind pace" }
