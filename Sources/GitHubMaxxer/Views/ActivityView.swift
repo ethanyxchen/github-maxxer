@@ -97,7 +97,7 @@ struct ActivityView: View {
         count: progress.count, target: progress.target,
         tint: Palette.colour(model.colour(for: filter)), shares: shares)
       HStack(spacing: 8) {
-        Lamp(isOn: progress.isComplete)
+        Lamp(isOn: progress.isComplete && shares.allSatisfy(\.isMet))
         Text(status(progress)).font(.system(size: 12, design: .monospaced))
           .foregroundStyle(Palette.secondary)
       }
