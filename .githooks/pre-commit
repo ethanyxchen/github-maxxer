@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+swift build -c release --scratch-path .build/pre-commit -Xswiftc -warnings-as-errors

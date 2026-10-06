@@ -33,8 +33,8 @@ final class MergeBanner {
   private func observe() {
     let banner = withObservationTracking {
       model.banner
-    } onChange: {
-      Task { @MainActor [weak self] in self?.observe() }
+    } onChange: { [weak self] in
+      Task { @MainActor in self?.observe() }
     }
     present(banner)
   }
