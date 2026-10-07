@@ -27,12 +27,27 @@ struct Swing {
   }
 }
 
-struct Sledgehammer: NSViewRepresentable {
+struct Sledgehammer: View {
   let swing: Swing
+  let overscan: Double
+
+  var body: some View {
+    GeometryReader { proxy in
+      Lens(swing: swing, overscan: overscan)
+        .frame(width: proxy.size.width * overscan, height: proxy.size.height * overscan)
+        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+    }
+  }
+}
+
+private struct Lens: NSViewRepresentable {
+  let swing: Swing
+  let overscan: Double
 
   func makeNSView(context: Context) -> SCNView {
     let view = SCNView(frame: .zero)
     view.scene = context.coordinator.scene
+    view.pointOfView = context.coordinator.camera(overscan: overscan)
     view.backgroundColor = .clear
     view.antialiasingMode = .multisampling4X
     return view
@@ -57,6 +72,7 @@ final class SledgehammerRig {
   let scene = SCNScene()
   private let rig = SCNNode()
   private let swinging = SCNNode()
+  private var cameras: [Double: SCNNode] = [:]
 
   init() {
     let orientation =
@@ -70,13 +86,6 @@ final class SledgehammerRig {
     rig.addChildNode(swinging)
     swinging.addChildNode(Self.scanned())
     scene.rootNode.addChildNode(rig)
-
-    let camera = SCNNode()
-    camera.camera = SCNCamera()
-    camera.camera?.fieldOfView = CGFloat(Self.fieldOfView)
-    camera.camera?.zNear = 0.05
-    camera.simdPosition = [0, 0, Self.cameraDistance]
-    scene.rootNode.addChildNode(camera)
 
     let catcher = SCNMaterial()
     catcher.lightingModel = .shadowOnly
@@ -104,6 +113,19 @@ final class SledgehammerRig {
     scene.lightingEnvironment.contents = Bundle.module.url(
       forResource: "Studio", withExtension: "hdr")
     scene.lightingEnvironment.intensity = 1.2
+  }
+
+  func camera(overscan: Double) -> SCNNode {
+    if let camera = cameras[overscan] { return camera }
+    let camera = SCNNode()
+    camera.camera = SCNCamera()
+    camera.camera?.fieldOfView =
+      2 * atan(overscan * tan(Double(Self.fieldOfView) / 2 * .pi / 180)) * 180 / .pi
+    camera.camera?.zNear = 0.05
+    camera.simdPosition = [0, 0, Self.cameraDistance]
+    scene.rootNode.addChildNode(camera)
+    cameras[overscan] = camera
+    return camera
   }
 
   func pose(_ swing: Swing) {

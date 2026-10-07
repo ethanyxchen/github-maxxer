@@ -6,12 +6,16 @@ import SwiftUI
 final class MergeBanner {
   fileprivate static let card = CGSize(width: 380, height: 68)
   fileprivate static let stage = CGSize(width: 640, height: 420)
+  fileprivate static let overscan = 2.0
   private static let margin = 12.0
   private static let lifetime = 8.0
   fileprivate static let exit = 0.35
+  fileprivate static let entrance = Animation.spring(duration: 0.45, bounce: 0.15)
   private let model: AppModel
   private let panel = NSPanel(
-    contentRect: CGRect(origin: .zero, size: stage), styleMask: [.borderless, .nonactivatingPanel],
+    contentRect: CGRect(
+      origin: .zero, size: CGSize(width: stage.width * overscan, height: stage.height * overscan)),
+    styleMask: [.borderless, .nonactivatingPanel],
     backing: .buffered, defer: true)
   private var shown: Date?
 
@@ -59,8 +63,8 @@ final class MergeBanner {
       y: visible.maxY - Self.margin - Self.card.height / 2)
     panel.setFrameOrigin(
       CGPoint(
-        x: center.x - Self.stage.width / 2,
-        y: center.y - Self.stage.height * (1 - Slam.impactHeight)))
+        x: center.x - Self.stage.width * Self.overscan / 2,
+        y: center.y - Self.stage.height * (1 - Slam.impactHeight + (Self.overscan - 1) / 2)))
     panel.orderFrontRegardless()
     Task {
       try? await Task.sleep(for: .seconds(Self.lifetime))
@@ -101,13 +105,16 @@ private struct BannerStage: View {
           )
           .transition(
             .asymmetric(
-              insertion: .identity, removal: .move(edge: .trailing).combined(with: .opacity)))
-        HammerSwing(landing: banner)
+              insertion: .move(edge: .trailing),
+              removal: .move(edge: .trailing).combined(with: .opacity)))
+        HammerSwing(landing: banner, overscan: MergeBanner.overscan)
+          .transition(.identity)
       }
     }
     .frame(width: MergeBanner.stage.width, height: MergeBanner.stage.height)
     .animation(
-      model.banner == nil ? .easeIn(duration: MergeBanner.exit) : nil, value: model.banner == nil)
+      model.banner == nil ? .easeIn(duration: MergeBanner.exit) : MergeBanner.entrance,
+      value: model.banner == nil)
   }
 }
 
