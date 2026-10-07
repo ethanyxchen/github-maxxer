@@ -3,19 +3,20 @@ import SwiftUI
 
 struct Swing {
   static let entrance = 0.05
-  var angle = 40.0
+  static let raised = 40.0
+  var angle = raised
   var opacity = 0.0
 
   @MainActor static let timeline = KeyframeTimeline(initialValue: Swing()) {
     KeyframeTrack(\.angle) {
-      MoveKeyframe(40)
+      MoveKeyframe(raised)
       CubicKeyframe(32, duration: 0.3)
       LinearKeyframe(0, duration: Slam.impact - 0.3, timingCurve: .easeIn)
       LinearKeyframe(0, duration: Slam.hold)
       CubicKeyframe(5, duration: 0.1)
       CubicKeyframe(0, duration: 0.1)
       LinearKeyframe(0, duration: 0.15)
-      CubicKeyframe(40, duration: 0.3)
+      CubicKeyframe(raised, duration: 0.3)
     }
     KeyframeTrack(\.opacity) {
       MoveKeyframe(0)
@@ -72,6 +73,7 @@ final class SledgehammerRig {
   let scene = SCNScene()
   private let rig = SCNNode()
   private let swinging = SCNNode()
+  private let sun = SCNLight()
   private var cameras: [Double: SCNNode] = [:]
 
   init() {
@@ -94,12 +96,10 @@ final class SledgehammerRig {
     screen.simdPosition = [0, 0, glass]
     scene.rootNode.addChildNode(screen)
 
-    let sun = SCNLight()
     sun.type = .directional
     sun.intensity = 1000
     sun.castsShadow = true
     sun.shadowMode = .forward
-    sun.shadowColor = NSColor(white: 0, alpha: 0.45)
     sun.shadowRadius = 14
     sun.shadowSampleCount = 24
     sun.shadowMapSize = CGSize(width: 4096, height: 4096)
@@ -130,6 +130,7 @@ final class SledgehammerRig {
 
   func pose(_ swing: Swing) {
     swinging.simdEulerAngles.x = Float(swing.angle * .pi / 180)
+    sun.shadowColor = NSColor(white: 0, alpha: 0.45 * max(0, 1 - swing.angle / Swing.raised))
   }
 
   private static func scanned() -> SCNNode {
