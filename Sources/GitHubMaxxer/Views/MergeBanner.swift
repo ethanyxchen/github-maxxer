@@ -14,7 +14,8 @@ final class MergeBanner {
   fileprivate static let exit = 0.35
   private let model: AppModel
   private let panel = NSPanel(
-    contentRect: CGRect(origin: .zero, size: canvas), styleMask: [.borderless, .nonactivatingPanel],
+    contentRect: CGRect(origin: .zero, size: canvas),
+    styleMask: [.borderless, .nonactivatingPanel],
     backing: .buffered, defer: true)
   private var shown: Date?
 
