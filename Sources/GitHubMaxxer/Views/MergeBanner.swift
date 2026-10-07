@@ -9,10 +9,9 @@ final class MergeBanner {
   fileprivate static let overscan = 2.0
   private static let canvas = CGSize(
     width: stage.width * overscan, height: stage.height * overscan)
-  private static let margin = 12.0
+  fileprivate static let margin = 12.0
   private static let lifetime = 8.0
   fileprivate static let exit = 0.35
-  fileprivate static let entrance = Animation.spring(duration: 0.45, bounce: 0.15)
   private let model: AppModel
   private let panel = NSPanel(
     contentRect: CGRect(origin: .zero, size: canvas), styleMask: [.borderless, .nonactivatingPanel],
@@ -80,6 +79,8 @@ private struct BannerStage: View {
   @Environment(\.openWindow) private var openWindow
   @State private var isHovering = false
 
+  private let offstage = AnyTransition.offset(x: MergeBanner.card.width + MergeBanner.margin)
+
   var body: some View {
     ZStack {
       if let banner = model.banner {
@@ -106,15 +107,15 @@ private struct BannerStage: View {
           )
           .transition(
             .asymmetric(
-              insertion: .move(edge: .trailing),
-              removal: .move(edge: .trailing).combined(with: .opacity)))
+              insertion: offstage, removal: offstage.combined(with: .opacity)))
         HammerSwing(landing: banner, overscan: MergeBanner.overscan)
           .transition(.identity)
       }
     }
     .frame(width: MergeBanner.stage.width, height: MergeBanner.stage.height)
     .animation(
-      model.banner == nil ? .easeIn(duration: MergeBanner.exit) : MergeBanner.entrance,
+      model.banner == nil
+        ? .easeIn(duration: MergeBanner.exit) : .easeOut(duration: Slam.settle),
       value: model.banner == nil)
   }
 }

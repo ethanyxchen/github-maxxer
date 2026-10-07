@@ -2,6 +2,7 @@ import AVFoundation
 import SwiftUI
 
 enum Slam {
+  static let settle = 0.35
   static let impact = 0.55
   static let hold = 0.09
   static let release = impact + hold
@@ -125,7 +126,9 @@ private struct PageCapture: NSViewRepresentable {
     guard let date, date != context.coordinator.slam?.date else { return }
     context.coordinator.slam?.task.cancel()
     let task = Task {
+      try? await Task.sleep(for: .seconds(max(0, Slam.settle + date.timeIntervalSinceNow)))
       for _ in 0..<10 {
+        guard !Task.isCancelled else { return }
         if let page = Self.snapshot(view) {
           let layers = await Task.detached(priority: .userInitiated) { PageLayers(page) }.value
           guard let layers else { return }
