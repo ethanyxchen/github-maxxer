@@ -6,12 +6,16 @@ import SwiftUI
 final class MergeBanner {
   fileprivate static let card = CGSize(width: 380, height: 68)
   fileprivate static let stage = CGSize(width: 640, height: 420)
-  private static let margin = 12.0
+  fileprivate static let overscan = 2.0
+  private static let canvas = CGSize(
+    width: stage.width * overscan, height: stage.height * overscan)
+  fileprivate static let margin = 12.0
   private static let lifetime = 8.0
   fileprivate static let exit = 0.35
   private let model: AppModel
   private let panel = NSPanel(
-    contentRect: CGRect(origin: .zero, size: stage), styleMask: [.borderless, .nonactivatingPanel],
+    contentRect: CGRect(origin: .zero, size: canvas),
+    styleMask: [.borderless, .nonactivatingPanel],
     backing: .buffered, defer: true)
   private var shown: Date?
 
@@ -27,7 +31,8 @@ final class MergeBanner {
     panel.hidesOnDeactivate = false
     panel.canHide = false
     panel.contentView = NSHostingView(
-      rootView: BannerStage(dismiss: model.releaseBanner).environment(model))
+      rootView: BannerStage(dismiss: model.releaseBanner).environment(model)
+        .frame(width: Self.canvas.width, height: Self.canvas.height))
     observe()
   }
 
@@ -59,8 +64,8 @@ final class MergeBanner {
       y: visible.maxY - Self.margin - Self.card.height / 2)
     panel.setFrameOrigin(
       CGPoint(
-        x: center.x - Self.stage.width / 2,
-        y: center.y - Self.stage.height * (1 - Slam.impactHeight)))
+        x: center.x - Self.canvas.width / 2,
+        y: center.y - Self.canvas.height / 2 + Self.stage.height * (Slam.impactHeight - 0.5)))
     panel.orderFrontRegardless()
     Task {
       try? await Task.sleep(for: .seconds(Self.lifetime))
@@ -74,6 +79,8 @@ private struct BannerStage: View {
   @Environment(AppModel.self) private var model
   @Environment(\.openWindow) private var openWindow
   @State private var isHovering = false
+
+  private let offstage = AnyTransition.offset(x: MergeBanner.card.width + MergeBanner.margin)
 
   var body: some View {
     ZStack {
@@ -101,13 +108,16 @@ private struct BannerStage: View {
           )
           .transition(
             .asymmetric(
-              insertion: .identity, removal: .move(edge: .trailing).combined(with: .opacity)))
-        HammerSwing(landing: banner)
+              insertion: offstage, removal: offstage.combined(with: .opacity)))
+        HammerSwing(landing: banner, overscan: MergeBanner.overscan)
+          .transition(.identity)
       }
     }
     .frame(width: MergeBanner.stage.width, height: MergeBanner.stage.height)
     .animation(
-      model.banner == nil ? .easeIn(duration: MergeBanner.exit) : nil, value: model.banner == nil)
+      model.banner == nil
+        ? .easeIn(duration: MergeBanner.exit) : .easeOut(duration: Slam.settle),
+      value: model.banner == nil)
   }
 }
 
