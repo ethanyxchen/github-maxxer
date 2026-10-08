@@ -328,13 +328,14 @@ private struct SidebarFooter: View {
             if !model.errors.isEmpty {
               Text("Needs attention")
             } else if let date = model.lastUpdated {
-              Text("Updated \(date, style: .relative) ago")
+              Text(
+                "Updated \(Text(.currentDate, format: .reference(to: date, allowedFields: [.minute, .hour, .day])))"
+              )
             } else {
-              Text("Waiting for first update")
+              Text("Updating…")
             }
-            Text("\(model.trackedRepositoryCount) repositories")
           }
-          .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
+          .font(.system(size: 11)).foregroundStyle(Palette.secondary).lineLimit(1)
           .padding(.leading, 15)
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
