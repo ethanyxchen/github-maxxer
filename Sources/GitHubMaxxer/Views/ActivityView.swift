@@ -139,11 +139,7 @@ struct ActivityView: View {
     if days.isEmpty {
       if search.isEmpty {
         ContentUnavailableView {
-          Label {
-            Text("No merges in these 7 days")
-          } icon: {
-            Image(nsImage: .mark).renderingMode(.template).resizable().scaledToFit()
-          }
+          Text("No merges in these 7 days")
         } description: {
           Text("PRs you author appear here after they merge in a tracked repository.")
         }
