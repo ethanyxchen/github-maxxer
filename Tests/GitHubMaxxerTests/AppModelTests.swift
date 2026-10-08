@@ -361,6 +361,28 @@ struct AppModelTests {
         == (landing.reveal <= model.now))
   }
 
+  @Test func refreshLeavesRepositoriesForTheRepositoriesPage() async throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let connection = PreviewData.connections(now: .now)[0]
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
+    let store = TestCredentials()
+    try store.save("test-credential", for: connection.id)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MergedProtocol.self]
+    let model = AppModel(
+      stateURL: url, credentials: store, session: URLSession(configuration: configuration))
+    #expect(!connection.snapshot.repositories.isEmpty)
+
+    await model.refresh()
+    #expect(model.connections[0].snapshot.repositories == connection.snapshot.repositories)
+
+    await model.refreshRepositories()
+    #expect(model.connections[0].snapshot.repositories.isEmpty)
+  }
+
   @Test func refreshMergesEveryAccountsArrivalsIntoOneLanding() async throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

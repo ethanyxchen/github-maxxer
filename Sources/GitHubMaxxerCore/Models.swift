@@ -67,9 +67,9 @@ public struct MergedPullRequest: Codable, Sendable, Hashable, Identifiable {
 }
 
 public struct GitHubSnapshot: Codable, Sendable {
-  public let repositories: [Repository]
-  public let pullRequests: [MergedPullRequest]
-  public let fetchedAt: Date
+  public var repositories: [Repository]
+  public private(set) var pullRequests: [MergedPullRequest]
+  public private(set) var fetchedAt: Date
 
   public init(
     repositories: [Repository], pullRequests: [MergedPullRequest], fetchedAt: Date
@@ -77,6 +77,27 @@ public struct GitHubSnapshot: Codable, Sendable {
     self.repositories = repositories
     self.pullRequests = pullRequests
     self.fetchedAt = fetchedAt
+  }
+
+  public var visibleRepositories: [Repository] {
+    var seen = Set<String>()
+    return (repositories + pullRequests.map(\.repository)).filter { seen.insert($0.id).inserted }
+      .sorted { $0.nameWithOwner.localizedStandardCompare($1.nameWithOwner) == .orderedAscending }
+  }
+
+  public static let refreshOverlap: TimeInterval = 60 * 60
+
+  public func refreshInterval(endingAt now: Date) -> DateInterval {
+    let resumed = fetchedAt.addingTimeInterval(-Self.refreshOverlap)
+    let start = max(resumed, Activity.historyInterval(endingAt: now).start)
+    return DateInterval(start: min(start, now), end: now)
+  }
+
+  public mutating func record(_ pulls: [MergedPullRequest], mergedIn interval: DateInterval) {
+    let history = Activity.historyInterval(endingAt: interval.end).start
+    pullRequests =
+      pulls + pullRequests.filter { $0.mergedAt < interval.start && $0.mergedAt >= history }
+    fetchedAt = interval.end
   }
 }
 

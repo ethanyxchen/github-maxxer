@@ -199,8 +199,7 @@ final class AppModel {
 
   var organizations: [String] {
     let repositories = connections.flatMap { account in
-      account.snapshot.repositories.filter { account.scope.includes($0) }
-        + account.snapshot.pullRequests.map(\.repository).filter { account.scope.includes($0) }
+      account.snapshot.visibleRepositories.filter(account.scope.includes)
     }
     let owners = repositories.filter { $0.ownerKind == .organization }.map(\.owner)
     return Dictionary(owners.map { (OrganizationPreferences.key($0), $0) }) { first, _ in first }
@@ -374,33 +373,67 @@ final class AppModel {
     guard !isPreview, !isRefreshing, !isConnecting, !connections.isEmpty else { return }
     isRefreshing = true
     defer { isRefreshing = false }
-    let accounts = connections
     let started = Date.now
-    for account in accounts {
-      if isConnecting { break }
-      let requestedAt = Date.now
-      do {
-        try Task.checkCancellation()
-        let token = try credentials.read(for: account.id)
-        let snapshot = try await GitHubClient(token: token, session: session).snapshot(
-          login: account.profile.login, now: requestedAt)
-        guard let index = connections.firstIndex(where: { $0.id == account.id }) else { continue }
-        if connections[index].snapshot.fetchedAt <= snapshot.fetchedAt {
-          let known = Set(merged.map(\.id))
-          connections[index].snapshot = snapshot
-          land(Set(merged.map(\.id)).subtracting(known), since: started)
-        }
-        connectionErrors[account.id] = nil
-      } catch is CancellationError {
-        return
-      } catch {
-        guard let current = connections.first(where: { $0.id == account.id }),
-          current.snapshot.fetchedAt <= requestedAt
-        else { continue }
-        connectionErrors[account.id] = error.localizedDescription
+    let results = await fetch { client, account in
+      let interval = account.snapshot.refreshInterval(endingAt: started)
+      return (
+        interval,
+        try await client.mergedPullRequests(
+          login: account.profile.login, from: interval.start, through: interval.end)
+      )
+    }
+    for (id, result) in results {
+      guard let index = connections.firstIndex(where: { $0.id == id }),
+        connections[index].snapshot.fetchedAt <= started
+      else { continue }
+      switch result {
+      case .success(let (interval, pulls)):
+        let known = Set(merged.map(\.id))
+        connections[index].snapshot.record(pulls, mergedIn: interval)
+        land(Set(merged.map(\.id)).subtracting(known), since: started)
+        connectionErrors[id] = nil
+      case .failure(is CancellationError): return
+      case .failure(let error): connectionErrors[id] = error.localizedDescription
       }
     }
     persist()
+  }
+
+  func refreshRepositories() async {
+    guard !isPreview else { return }
+    for (id, result) in await fetch({ client, _ in try await client.repositories() }) {
+      guard let index = connections.firstIndex(where: { $0.id == id }) else { continue }
+      switch result {
+      case .success(let repositories): connections[index].snapshot.repositories = repositories
+      case .failure(is CancellationError): return
+      case .failure(let error): connectionErrors[id] = error.localizedDescription
+      }
+    }
+    persist()
+  }
+
+  private func fetch<Value: Sendable>(
+    _ request: @escaping @Sendable (GitHubClient, AccountConnection) async throws -> Value
+  ) async -> [(UUID, Result<Value, any Error>)] {
+    let session = session
+    let accounts = connections.map { account in
+      (account, Result { try credentials.read(for: account.id) })
+    }
+    return await withTaskGroup(of: (UUID, Result<Value, any Error>).self) { group in
+      for (account, token) in accounts {
+        group.addTask {
+          do {
+            let client = GitHubClient(token: try token.get(), session: session)
+            return (account.id, .success(try await request(client, account)))
+          } catch {
+            return (account.id, .failure(error))
+          }
+        }
+      }
+      var results: [(UUID, Result<Value, any Error>)] = []
+      for await result in group { results.append(result) }
+      return results
+    }
   }
 
   private func land(_ arrived: Set<String>, since started: Date) {
@@ -452,9 +485,7 @@ final class AppModel {
 
   private func reconcileOrganizations() {
     guard !connections.isEmpty else { return }
-    let owners = connections.flatMap {
-      $0.snapshot.repositories + $0.snapshot.pullRequests.map(\.repository)
-    }
+    let owners = connections.flatMap(\.snapshot.visibleRepositories)
     let keys = Set(owners.map { OrganizationPreferences.key($0.owner) })
     organizationPreferences = organizationPreferences.keeping(keys)
     workspaceSettings.organizations = workspaceSettings.organizations.filter {

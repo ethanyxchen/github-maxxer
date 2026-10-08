@@ -11,7 +11,7 @@ struct RepositoriesView: View {
   }
 
   private var repositories: [Repository] {
-    (account?.snapshot.repositories ?? []).filter {
+    (account?.snapshot.visibleRepositories ?? []).filter {
       search.isEmpty || $0.nameWithOwner.localizedCaseInsensitiveContains(search)
     }
   }
@@ -73,7 +73,8 @@ struct RepositoriesView: View {
                 ))
               Spacer()
               Menu("Count repositories from") {
-                ForEach(Set(account.snapshot.repositories.map(\.owner)).sorted(), id: \.self) {
+                ForEach(Set(account.snapshot.visibleRepositories.map(\.owner)).sorted(), id: \.self)
+                {
                   owner in
                   Toggle(owner, isOn: ownerBinding(owner, account: account))
                 }
@@ -134,6 +135,7 @@ struct RepositoriesView: View {
     }
     .searchable(text: $search, placement: .toolbar, prompt: "Find a repository or owner")
     .findable()
+    .task { await model.refreshRepositories() }
   }
 
   private func ownerBinding(_ owner: String, account: AccountConnection) -> Binding<Bool> {
@@ -144,7 +146,7 @@ struct RepositoriesView: View {
       if selected {
         scope.owners.insert(owner)
         scope.repositories.subtract(
-          account.snapshot.repositories.filter { $0.owner == owner }.map(\.id))
+          account.snapshot.visibleRepositories.filter { $0.owner == owner }.map(\.id))
       } else {
         scope.owners = scope.owners.filter { $0.caseInsensitiveCompare(owner) != .orderedSame }
       }

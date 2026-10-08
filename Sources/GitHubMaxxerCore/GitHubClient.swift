@@ -18,19 +18,12 @@ public struct GitHubClient: Sendable {
 
   public func snapshot(login: String, now: Date = .now) async throws -> GitHubSnapshot {
     async let repositories = repositories()
-    let start = Activity.historyInterval(endingAt: now).start
-    async let pulls = mergedPullRequests(login: login, from: start, to: now.addingTimeInterval(1))
-    let (accessible, merged) = try await (repositories, pulls)
-    var seen = Set<String>()
-    let visibleRepositories = (accessible + merged.map(\.repository)).filter {
-      seen.insert($0.id).inserted
-    }
-    .sorted { $0.nameWithOwner.localizedStandardCompare($1.nameWithOwner) == .orderedAscending }
-    return GitHubSnapshot(
-      repositories: visibleRepositories, pullRequests: merged, fetchedAt: now)
+    async let pulls = mergedPullRequests(
+      login: login, from: Activity.historyInterval(endingAt: now).start, through: now)
+    return try await GitHubSnapshot(repositories: repositories, pullRequests: pulls, fetchedAt: now)
   }
 
-  private func repositories() async throws -> [Repository] {
+  public func repositories() async throws -> [Repository] {
     var cursor: String?
     var result: [Repository] = []
     repeat {
@@ -53,12 +46,12 @@ public struct GitHubClient: Sendable {
     return result
   }
 
-  private func mergedPullRequests(login: String, from start: Date, to end: Date) async throws
+  public func mergedPullRequests(login: String, from start: Date, through end: Date) async throws
     -> [MergedPullRequest]
   {
     let formatter = ISO8601DateFormatter()
     let search =
-      "is:pr is:merged author:\(login) merged:>=\(formatter.string(from: start)) merged:<\(formatter.string(from: end)) sort:updated-desc"
+      "is:pr is:merged author:\(login) merged:\(formatter.string(from: start))..\(formatter.string(from: end)) sort:updated-desc"
     var cursor: String?
     var result: [MergedPullRequest] = []
     repeat {
@@ -80,13 +73,17 @@ public struct GitHubClient: Sendable {
         variables: SearchVariables(query: search, after: cursor)
       )
       if response.search.issueCount > 1_000 {
-        guard end.timeIntervalSince(start) > 2 else { throw GitHubError.searchLimit }
-        let middle = Date(
-          timeIntervalSince1970: floor(
-            (start.timeIntervalSince1970 + end.timeIntervalSince1970) / 2))
-        let first = try await mergedPullRequests(login: login, from: start, to: middle)
-        let second = try await mergedPullRequests(login: login, from: middle, to: end)
-        return first + second
+        let first = floor(start.timeIntervalSince1970)
+        let last = floor(end.timeIntervalSince1970)
+        guard last > first else { throw GitHubError.searchLimit }
+        let middle = floor((first + last) / 2)
+        async let earlier = mergedPullRequests(
+          login: login, from: Date(timeIntervalSince1970: first),
+          through: Date(timeIntervalSince1970: middle))
+        async let later = mergedPullRequests(
+          login: login, from: Date(timeIntervalSince1970: middle + 1),
+          through: Date(timeIntervalSince1970: last))
+        return try await earlier + later
       }
       result.append(contentsOf: response.search.nodes)
       cursor = try response.search.pageInfo.nextCursor(previous: cursor)
