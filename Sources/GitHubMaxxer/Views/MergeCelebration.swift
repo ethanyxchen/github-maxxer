@@ -92,14 +92,15 @@ struct HammerShatter: View {
 }
 
 @MainActor
-private final class Soundtrack {
+final class Soundtrack {
   static let shared = Soundtrack()
+  static let mutedKey = "slamSoundMuted"
   private let cues = [
     (Slam.impact, Soundtrack.player("Impact")), (Slam.shatter, Soundtrack.player("Shatter")),
   ]
 
   func play(elapsed: Double) {
-    guard elapsed < Slam.impact else { return }
+    guard elapsed < Slam.impact, !UserDefaults.standard.bool(forKey: Self.mutedKey) else { return }
     Logger.merges.log("Playing slam sound")
     for (time, player) in cues {
       guard let player else { continue }

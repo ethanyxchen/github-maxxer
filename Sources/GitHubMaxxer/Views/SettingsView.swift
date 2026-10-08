@@ -7,6 +7,7 @@ struct SettingsView: View {
   @State private var draft: ConnectionDraft?
   @State private var removing: AccountConnection?
   @State private var removalError: String?
+  @AppStorage(Soundtrack.mutedKey) private var isSlamSoundMuted = false
 
   var body: some View {
     ScrollView {
@@ -60,6 +61,17 @@ struct SettingsView: View {
             .labelStyle(.iconOnly).buttonStyle(.accessoryBarAction)
             .help("Add GitHub Connection…")
             .disabled(model.isPreview)
+        }
+        SettingsSection(
+          "Merge celebration",
+          footer: "Play the hammer's impact and shatter sounds when a pull request merges."
+        ) {
+          LabeledContent("Sound") {
+            Toggle(
+              "Sound",
+              isOn: Binding(get: { !isSlamSoundMuted }, set: { isSlamSoundMuted = !$0 }))
+              .labelsHidden().toggleStyle(.switch).controlSize(.small)
+          }
         }
         SettingsSection("Updates") {
           LabeledContent("Refresh", value: "Every minute while the app is running")
