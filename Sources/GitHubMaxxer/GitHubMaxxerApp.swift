@@ -26,6 +26,7 @@ struct GitHubMaxxerApp: App {
           NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
         }
         .keyboardShortcut("s", modifiers: .command)
+        .disabled(destination == nil)
         Divider()
         Button("Previous Page") { destination = destination?.step(-1, through: model.activities) }
           .keyboardShortcut("[", modifiers: [.command, .shift])
