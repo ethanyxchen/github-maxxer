@@ -20,23 +20,6 @@ struct RepositoriesView: View {
     Group {
       if let account {
         VStack(spacing: 0) {
-          HStack {
-            Text("Organisations from all connections").font(.headline)
-            Spacer()
-            Menu("Show in Sidebar") {
-              ForEach(model.organizations, id: \.self) { owner in
-                Toggle(
-                  model.displayName(for: owner),
-                  isOn: Binding(
-                    get: { !model.isHidden(owner) },
-                    set: { model.setHidden(!$0, organization: owner) }))
-              }
-            }
-            .fixedSize()
-            .disabled(model.organizations.isEmpty)
-          }
-          .padding(.horizontal, 20).padding(.vertical, 12)
-          Divider()
           VStack(alignment: .leading, spacing: 12) {
             HStack {
               if model.connections.count > 1 {
@@ -73,17 +56,14 @@ struct RepositoriesView: View {
                 ))
               Spacer()
               Menu("Count repositories from") {
-                ForEach(Set(account.snapshot.visibleRepositories.map(\.owner)).sorted(), id: \.self)
-                {
-                  owner in
-                  Toggle(owner, isOn: ownerBinding(owner, account: account))
+                ForEach(owners(of: account), id: \.self) { owner in
+                  Toggle(model.displayName(for: owner), isOn: ownerBinding(owner, account: account))
                 }
               }
               .fixedSize()
-              .disabled(account.scope.allRepositories)
             }
             Text(
-              "Only PRs you author count. Choosing an organisation or account under Count repositories from includes all of its repositories, now and in future."
+              "Only PRs you author count. Counting an organisation or account includes all of its repositories, now and in future. Organisations you count appear in the sidebar."
             )
             .font(.callout).foregroundStyle(.secondary)
           }
@@ -138,19 +118,18 @@ struct RepositoriesView: View {
     .task { await model.refreshRepositories() }
   }
 
+  private func owners(of account: AccountConnection) -> [String] {
+    Dictionary(account.snapshot.visibleRepositories.map { ($0.owner.lowercased(), $0.owner) }) {
+      first, _ in first
+    }
+    .values.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+  }
+
   private func ownerBinding(_ owner: String, account: AccountConnection) -> Binding<Bool> {
     Binding {
-      account.scope.includesOwner(owner)
-    } set: { selected in
-      var scope = account.scope
-      if selected {
-        scope.owners.insert(owner)
-        scope.repositories.subtract(
-          account.snapshot.visibleRepositories.filter { $0.owner == owner }.map(\.id))
-      } else {
-        scope.owners = scope.owners.filter { $0.caseInsensitiveCompare(owner) != .orderedSame }
-      }
-      model.setScope(scope, for: account.id)
+      account.scope.allRepositories || account.scope.includesOwner(owner)
+    } set: {
+      model.setCounted($0, owner: owner, for: account.id)
     }
   }
 

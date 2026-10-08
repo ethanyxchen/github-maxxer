@@ -128,8 +128,7 @@ public enum ActivityFilter: Hashable, Sendable {
       case .personal:
         personalLogins.contains { $0.caseInsensitiveCompare(pull.repository.owner) == .orderedSame }
       case .organization(let owner):
-        pull.repository.ownerKind == .organization
-          && pull.repository.owner.caseInsensitiveCompare(owner) == .orderedSame
+        pull.repository.owner.caseInsensitiveCompare(owner) == .orderedSame
       }
     }
   }

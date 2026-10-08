@@ -33,6 +33,31 @@ struct ActivityTests {
     )
   }
 
+  @Test func newAccountsCountOwnersTheyMergedIntoAndThemselves() {
+    let scope = RepositoryScope.active(
+      in: [pull("work", "2026-09-29T12:00:00Z", repo: "acme/app")], login: "me")
+    #expect(scope == RepositoryScope(allRepositories: false, owners: ["acme", "me"]))
+  }
+
+  @Test func stopCountingAnOwnerWhileTrackingEverythingKeepsTheOthers() {
+    let available = ["acme/app", "beta/app", "beta/tools", "me/dotfiles"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false)
+    }
+    let scope = RepositoryScope().counting("BETA", false, among: available)
+    #expect(!scope.allRepositories)
+    #expect(scope.owners == ["acme", "me"])
+    #expect(RepositoryScope().counting("beta", true, among: available) == RepositoryScope())
+    #expect(scope.counting("beta", true, among: available).owners == ["acme", "beta", "me"])
+  }
+
+  @Test func stopCountingAnOwnerDropsItsIndividuallyTrackedRepositories() {
+    let available = ["acme/app", "beta/app"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false)
+    }
+    let scope = RepositoryScope(allRepositories: false, repositories: ["acme/app", "beta/app"])
+    #expect(scope.counting("beta", false, among: available).repositories == ["acme/app"])
+  }
+
   @Test func refreshResumesShortlyBeforeTheLastFetch() {
     let now = date("2026-09-30T12:00:00Z")
     let recent = GitHubSnapshot(
@@ -127,6 +152,9 @@ struct ActivityTests {
     #expect(
       ActivityFilter.organization("ACME").pullRequests(in: pulls, personalLogins: personalLogins)
         .map(\.id) == ["work"])
+    #expect(
+      ActivityFilter.organization("someone").pullRequests(in: pulls, personalLogins: personalLogins)
+        .map(\.id) == ["collaborator"])
     #expect(ActivityFilter.all.pullRequests(in: pulls, personalLogins: personalLogins).count == 3)
   }
 
