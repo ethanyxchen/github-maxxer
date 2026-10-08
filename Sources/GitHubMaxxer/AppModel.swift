@@ -199,7 +199,7 @@ final class AppModel {
 
   var organizations: [String] {
     let repositories = connections.flatMap { account in
-      account.snapshot.visibleRepositories.filter(account.scope.includes)
+      account.snapshot.pullRequests.map(\.repository).filter(account.scope.includes)
     }
     let owners = repositories.filter { $0.ownerKind == .organization }.map(\.owner)
     return Dictionary(owners.map { (OrganizationPreferences.key($0), $0) }) { first, _ in first }
