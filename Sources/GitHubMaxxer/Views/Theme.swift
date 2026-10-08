@@ -181,3 +181,25 @@ private struct Triangle: Shape {
     }
   }
 }
+
+struct ProminentButtonStyle: PrimitiveButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    ProminentButton(configuration: configuration)
+  }
+}
+
+extension PrimitiveButtonStyle where Self == ProminentButtonStyle {
+  static var prominent: Self { .init() }
+}
+
+private struct ProminentButton: View {
+  let configuration: PrimitiveButtonStyleConfiguration
+  @State private var isHovering = false
+
+  var body: some View {
+    Button(configuration)
+      .buttonStyle(.borderedProminent)
+      .tint(Color.accentColor.mix(with: .black, by: isHovering ? 0.18 : 0))
+      .onHover { isHovering = $0 }
+  }
+}
