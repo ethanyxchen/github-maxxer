@@ -196,7 +196,9 @@ final class AppModel {
     let repositories = connections.flatMap { account in
       account.snapshot.visibleRepositories.filter(account.scope.includes)
     }
-    let owners = repositories.filter { $0.ownerKind == .organization }.map(\.owner)
+    let owners = repositories.map(\.owner).filter { owner in
+      !personalLogins.contains { $0.caseInsensitiveCompare(owner) == .orderedSame }
+    }
     return Dictionary(owners.map { (OrganizationPreferences.key($0), $0) }) { first, _ in first }
       .values.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
   }

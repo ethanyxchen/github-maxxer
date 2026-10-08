@@ -218,16 +218,20 @@ struct AppModelTests {
     let repositories = ["acme/app", "quiet/app", "other/app"].map {
       Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
     }
+    let people = [sample.profile.login, "friend"].map {
+      Repository(id: "\($0)/app", nameWithOwner: "\($0)/app", isPrivate: false)
+    }
     let connection = AccountConnection(
       id: UUID(), label: "Work", profile: sample.profile,
-      scope: RepositoryScope(allRepositories: false, owners: ["acme", "quiet"]),
+      scope: RepositoryScope(
+        allRepositories: false, owners: ["acme", "quiet", "friend", sample.profile.login]),
       snapshot: GitHubSnapshot(
-        repositories: repositories, pullRequests: [mergedPullRequest(in: repositories[0])],
-        fetchedAt: .now))
+        repositories: repositories + people,
+        pullRequests: [mergedPullRequest(in: repositories[0])], fetchedAt: .now))
     try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
-    #expect(model.sidebarOrganizations == ["acme", "quiet"])
+    #expect(model.sidebarOrganizations == ["acme", "friend", "quiet"])
   }
 
   @Test func organizationPreferencesIgnoreOwnerCase() throws {
