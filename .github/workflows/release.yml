@@ -53,6 +53,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           sha256="$(shasum -a 256 "build/Hammertime-$version.zip" | cut -d ' ' -f 1)"
+          bundle_id="$(plutil -extract CFBundleIdentifier raw Resources/Info.plist)"
           printf '%s\n' "$TAP_DEPLOY_KEY" >"$RUNNER_TEMP/tap-key"
           chmod 600 "$RUNNER_TEMP/tap-key"
           export GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/tap-key -o IdentitiesOnly=yes"
@@ -72,6 +73,8 @@ jobs:
             depends_on macos: :tahoe
 
             app "Hammertime.app"
+
+            uninstall quit: "$bundle_id"
 
             zap trash: "~/Library/Application Support/GitHub Maxxer"
           end
