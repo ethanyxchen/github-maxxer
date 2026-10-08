@@ -110,7 +110,7 @@ private final class Soundtrack {
   }
 
   private static func player(_ name: String) -> AVAudioPlayer? {
-    let player = Bundle.module.url(forResource: name, withExtension: "caf").flatMap {
+    let player = Bundle.main.url(forResource: name, withExtension: "caf").flatMap {
       try? AVAudioPlayer(contentsOf: $0)
     }
     player?.prepareToPlay()

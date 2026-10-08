@@ -147,7 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension NSImage {
   static let mark: NSImage = {
-    let image = Bundle.module.image(forResource: "Mark")!
+    let image = Bundle.main.image(forResource: "Mark")!
     image.size = NSSize(width: 18, height: 18)
     image.isTemplate = true
     return image
