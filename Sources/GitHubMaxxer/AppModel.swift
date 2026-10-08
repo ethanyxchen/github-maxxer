@@ -287,14 +287,6 @@ final class AppModel {
 
   private var personalLogins: Set<String> { Set(connections.map(\.profile.login)) }
 
-  var trackedRepositoryCount: Int {
-    Set(
-      connections.flatMap { account in
-        account.snapshot.repositories.filter { account.scope.includes($0) }.map(\.id)
-      }
-    ).count
-  }
-
   var lastUpdated: Date? { connections.map { $0.snapshot.fetchedAt }.min() }
   var errors: [String] {
     (storageError.map { [$0] } ?? [])

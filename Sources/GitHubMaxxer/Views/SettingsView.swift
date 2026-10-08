@@ -55,12 +55,11 @@ struct SettingsView: View {
               }
             }
           }
-          Button {
-            showConnection(nil)
-          } label: {
-            Label("Add GitHub connection…", systemImage: "plus")
-          }
-          .disabled(model.isPreview)
+        } accessory: {
+          Button("Add GitHub Connection…", systemImage: "plus") { showConnection(nil) }
+            .labelStyle(.iconOnly).buttonStyle(.accessoryBarAction)
+            .help("Add GitHub Connection…")
+            .disabled(model.isPreview)
         }
         SettingsSection("Updates") {
           LabeledContent("Refresh", value: "Every minute while the app is running")
@@ -102,21 +101,31 @@ struct SettingsView: View {
   }
 }
 
-private struct SettingsSection<Content: View>: View {
+private struct SettingsSection<Content: View, Accessory: View>: View {
   let title: String
   var footer: String?
   let content: Content
+  let accessory: Accessory
   private let inset: CGFloat = 10
 
-  init(_ title: String, footer: String? = nil, @ViewBuilder content: () -> Content) {
+  init(
+    _ title: String, footer: String? = nil, @ViewBuilder content: () -> Content,
+    @ViewBuilder accessory: () -> Accessory = { EmptyView() }
+  ) {
     self.title = title
     self.footer = footer
     self.content = content()
+    self.accessory = accessory()
   }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(title).font(.headline)
+      HStack {
+        Text(title).font(.headline)
+        Spacer()
+        accessory
+      }
+      .padding(.trailing, inset)
       VStack(alignment: .leading, spacing: 0) {
         Group(subviews: content) { rows in
           ForEach(rows) { row in
