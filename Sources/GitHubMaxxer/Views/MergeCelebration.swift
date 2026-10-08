@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import os
 
 enum Slam {
   static let settle = 0.35
@@ -99,6 +100,7 @@ private final class Soundtrack {
 
   func play(elapsed: Double) {
     guard elapsed < Slam.impact else { return }
+    Logger.merges.log("Playing slam sound")
     for (time, player) in cues {
       guard let player else { continue }
       player.stop()
