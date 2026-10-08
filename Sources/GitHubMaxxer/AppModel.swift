@@ -181,7 +181,8 @@ final class AppModel {
   var banner: Landing? { announced.isEmpty ? nil : held }
 
   var isWelcoming: Bool {
-    connections.isEmpty || landing.map { $0.pullRequests.isEmpty && $0.reveal > now } == true
+    connections.isEmpty
+      || landing.map { $0.pullRequests.isEmpty && $0.slam != nil && $0.reveal > now } == true
   }
 
   private var merged: [MergedPullRequest] {

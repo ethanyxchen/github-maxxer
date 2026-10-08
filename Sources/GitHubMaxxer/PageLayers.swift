@@ -80,7 +80,10 @@ struct PageLayers {
   }
 
   private static func bin(_ pixel: UInt32) -> Int {
-    Int(pixel >> 4 & 0xF | pixel >> 8 & 0xF0 | pixel >> 12 & 0xF00)
+    let low: UInt32 = pixel >> 4 & 0xF
+    let middle: UInt32 = pixel >> 8 & 0xF0
+    let high: UInt32 = pixel >> 12 & 0xF00
+    return Int(low | middle | high)
   }
 
   private static func image(_ pixels: [UInt32], width: Int, height: Int) -> CGImage? {
