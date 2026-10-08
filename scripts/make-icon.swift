@@ -206,7 +206,7 @@ func appIcon(_ hammer: Hammer) -> NSBitmapImageRep {
       .draw(fromCenter: impact, radius: 0, toCenter: impact, radius: 70, options: [])
 
     noise = Noise(23)
-    NSColor(calibratedRed: 1, green: 0.68, blue: 0.3, alpha: 1).setStroke()
+    NSColor(srgbRed: 0x89 / 255, green: 0x57 / 255, blue: 0xE5 / 255, alpha: 1).setStroke()
     for _ in 0..<7 {
       let angle = .pi * (0.12 + noise.next() * 0.76)
       let distance = 150 + noise.next() * 40
