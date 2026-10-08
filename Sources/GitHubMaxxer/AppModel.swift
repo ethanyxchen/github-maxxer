@@ -335,13 +335,18 @@ final class AppModel {
     defer { isConnecting = false }
     let token = token.trimmingCharacters(in: .whitespacesAndNewlines)
     let client = GitHubClient(token: token, session: session)
+    let fetchedAt = Date.now
+    async let pulls = client.mergedPullRequests(
+      from: Activity.historyInterval(endingAt: fetchedAt).start, through: fetchedAt)
     let profile = try await client.profile()
     if let existing = connections.first(where: { $0.id == id }), existing.profile.id != profile.id {
       throw ConnectionError.wrongAccount(existing.profile.login)
     }
     let connectionID =
       id ?? connections.first { $0.profile.id == profile.id }?.id ?? UUID()
-    let snapshot = try await client.snapshot(login: profile.login)
+    let snapshot = GitHubSnapshot(
+      repositories: connections.first { $0.id == connectionID }?.snapshot.repositories ?? [],
+      pullRequests: try await pulls, fetchedAt: fetchedAt)
     try Task.checkCancellation()
     try credentials.save(token, for: connectionID)
     let isFirst = connections.isEmpty
@@ -359,6 +364,7 @@ final class AppModel {
     now = .now
     if isFirst { slam(Landing([], joining: nil, since: now)) }
     persist()
+    Task { await refreshRepositories() }
   }
 
   func remove(_ id: UUID) throws {
@@ -377,9 +383,7 @@ final class AppModel {
     let results = await fetch { client, account in
       let interval = account.snapshot.refreshInterval(endingAt: started)
       return (
-        interval,
-        try await client.mergedPullRequests(
-          login: account.profile.login, from: interval.start, through: interval.end)
+        interval, try await client.mergedPullRequests(from: interval.start, through: interval.end)
       )
     }
     for (id, result) in results {

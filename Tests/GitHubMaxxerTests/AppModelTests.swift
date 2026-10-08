@@ -31,6 +31,8 @@ struct AppModelTests {
     #expect(model.connections[0].profile.login == "renamed-user")
     #expect(model.connections[0].scope == connection.scope)
     #expect(model.connections[0].label == connection.label)
+    #expect(!connection.snapshot.repositories.isEmpty)
+    #expect(model.connections[0].snapshot.repositories == connection.snapshot.repositories)
     #expect(try store.read(for: connection.id) == "cli-credential")
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.connections.count == 1)

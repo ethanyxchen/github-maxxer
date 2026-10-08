@@ -42,76 +42,74 @@ struct GitHubClientTests {
     await #expect(throws: GitHubError.self) { try await client.profile() }
   }
 
-  @Test func paginatesRepositoriesAndMergedPullRequests() async throws {
+  @Test func paginatesRepositories() async throws {
     let client = client { request in
       let body = try requestBody(request)
-      let query = body["query"] as! String
+      #expect((body["query"] as! String).contains("ownerKind: owner { __typename }"))
       let after = (body["variables"] as? [String: Any])?["after"] as? String
-      if query.contains("repositories(first") {
-        #expect(query.contains("ownerKind: owner { __typename }"))
-        let id = after == nil ? "r1" : "r2"
-        let next = after == nil ? "\"repo-page-2\"" : "null"
-        return StubResponse(
-          body:
-            "{\"data\":{\"viewer\":{\"repositories\":{\"nodes\":[\(repositoryJSON(id))],\"pageInfo\":{\"hasNextPage\":\(after == nil),\"endCursor\":\(next)}}}}}"
-        )
-      }
-      #expect(query.contains("ownerKind: owner { __typename }"))
-      let id = after == nil ? "p1" : "p2"
-      return searchResponse(
-        count: 2, nodes: [pullJSON(id)], next: after == nil ? "pull-page-2" : nil)
+      let id = after == nil ? "r1" : "r2"
+      let next = after == nil ? "\"repo-page-2\"" : "null"
+      return StubResponse(
+        body:
+          "{\"data\":{\"viewer\":{\"repositories\":{\"nodes\":[\(repositoryJSON(id))],\"pageInfo\":{\"hasNextPage\":\(after == nil),\"endCursor\":\(next)}}}}}"
+      )
     }
-    let snapshot = try await client.snapshot(login: "alex", now: fixedNow)
-    #expect(snapshot.repositories.map(\.id) == ["r1", "r2"])
-    #expect(snapshot.pullRequests.map(\.id) == ["p1", "p2"])
-    #expect(snapshot.repositories.allSatisfy { $0.ownerKind == .organization })
-    #expect(snapshot.pullRequests.allSatisfy { $0.repository.ownerKind == .organization })
+    let repositories = try await client.repositories()
+    #expect(repositories.map(\.id) == ["r1", "r2"])
+    #expect(repositories.allSatisfy { $0.ownerKind == .organization })
   }
 
-  @Test func partitionsSearchAboveGitHubResultLimit() async throws {
-    let searches = LockedValues<String>()
+  @Test func paginatesMergedPullRequestsOfTheSignedInAccount() async throws {
     let client = client { request in
       let body = try requestBody(request)
-      let query = body["query"] as! String
-      if query.contains("repositories(first") { return emptyRepositories }
-      let search = (body["variables"] as! [String: Any])["query"] as! String
-      let index = searches.append(search)
-      if index == 0 { return searchResponse(count: 1_001, nodes: []) }
-      return searchResponse(count: 1, nodes: [pullJSON("p\(index)")])
+      let variables = body["variables"] as! [String: Any]
+      #expect((variables["query"] as! String).contains("author:@me"))
+      let after = variables["after"] as? String
+      return searchResponse(
+        count: 2, nodes: [pullJSON(after == nil ? "p1" : "p2")],
+        next: after == nil ? "pull-page-2" : nil)
     }
-    let snapshot = try await client.snapshot(login: "alex", now: fixedNow)
-    #expect(snapshot.pullRequests.count == 2)
-    #expect(snapshot.visibleRepositories.count == 1)
+    let pulls = try await client.mergedPullRequests(
+      from: fixedNow.addingTimeInterval(-3600), through: fixedNow)
+    #expect(pulls.map(\.id) == ["p1", "p2"])
+    #expect(pulls.allSatisfy { $0.repository.ownerKind == .organization })
+  }
+
+  @Test func searchesHistoryInParallelWindowsAndSplitsCrowdedOnes() async throws {
+    let searches = LockedValues<String>()
+    let client = client { request in
+      let search = (try requestBody(request)["variables"] as! [String: Any])["query"] as! String
+      let index = searches.append(search)
+      return index == 0
+        ? searchResponse(count: 1_001, nodes: [])
+        : searchResponse(count: 1, nodes: [pullJSON("p\(index)")])
+    }
+    let start = Activity.historyInterval(endingAt: fixedNow).start
+    let pulls = try await client.mergedPullRequests(from: start, through: fixedNow)
     let ranges = searches.values.map(mergedRange)
-    #expect(ranges.count == 3)
-    let halves = ranges.dropFirst().sorted { $0.start < $1.start }
-    #expect(halves.first!.start == ranges[0].start)
-    #expect(halves.last!.end == ranges[0].end)
-    #expect(halves.last!.start == halves.first!.end.addingTimeInterval(1))
+    let split = ranges[0]
+    let leaves = ranges.dropFirst().sorted { $0.start < $1.start }
+    #expect(pulls.count == leaves.count)
+    #expect(ranges.count > 40)
+    #expect(leaves.filter { split.contains($0.start) }.count == 2)
+    #expect(leaves.first!.start == start)
+    #expect(leaves.last!.end == fixedNow)
+    #expect(zip(leaves, leaves.dropFirst()).allSatisfy { $1.start == $0.end.addingTimeInterval(1) })
+    #expect(leaves.allSatisfy { $0.duration < 2 * 24 * 60 * 60 })
   }
 
   @Test func rejectsMissingPaginationCursor() async {
-    let client = client { request in
-      let query = try requestBody(request)["query"] as! String
-      if query.contains("repositories(first") {
-        return StubResponse(
-          body:
-            "{\"data\":{\"viewer\":{\"repositories\":{\"nodes\":[],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":null}}}}}"
-        )
-      }
-      return searchResponse(count: 0, nodes: [])
+    let client = client { _ in
+      StubResponse(
+        body:
+          "{\"data\":{\"viewer\":{\"repositories\":{\"nodes\":[],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":null}}}}}"
+      )
     }
-    await #expect(throws: GitHubError.self) {
-      try await client.snapshot(login: "alex", now: fixedNow)
-    }
+    await #expect(throws: GitHubError.self) { try await client.repositories() }
   }
 }
 
 private let fixedNow = ISO8601DateFormatter().date(from: "2026-09-30T12:00:00Z")!
-private let emptyRepositories = StubResponse(
-  body:
-    "{\"data\":{\"viewer\":{\"repositories\":{\"nodes\":[],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}}"
-)
 
 private func mergedRange(_ search: String) -> DateInterval {
   let bounds = search.split(separator: " ").first { $0.hasPrefix("merged:") }!
