@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Import Developer ID certificate
+        env:
+          DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(uuidgen)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          base64 --decode <<<"$DEVELOPER_ID_P12" >"$RUNNER_TEMP/developer-id.p12"
+          security import "$RUNNER_TEMP/developer-id.p12" -k "$keychain" \
+            -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain"
+          security list-keychains -d user -s "$keychain"
+
+      - name: Build, sign and notarize
+        env:
+          NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          export NOTARY_KEY_PATH="$RUNNER_TEMP/notary.p8"
+          printf '%s' "$NOTARY_KEY" >"$NOTARY_KEY_PATH"
+          ./scripts/release-app.sh
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" build/Hammertime-*.zip --generate-notes --verify-tag
+
+      - name: Update Homebrew tap
+        env:
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          sha256="$(shasum -a 256 "build/Hammertime-$version.zip" | cut -d ' ' -f 1)"
+          printf '%s\n' "$TAP_DEPLOY_KEY" >"$RUNNER_TEMP/tap-key"
+          chmod 600 "$RUNNER_TEMP/tap-key"
+          export GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/tap-key -o IdentitiesOnly=yes"
+          git clone git@github.com:ethanyxchen/homebrew-tap.git "$RUNNER_TEMP/tap"
+          cd "$RUNNER_TEMP/tap"
+          mkdir -p Casks
+          cat >Casks/hammertime.rb <<CASK
+          cask "hammertime" do
+            version "$version"
+            sha256 "$sha256"
+
+            url "https://github.com/$GITHUB_REPOSITORY/releases/download/v#{version}/Hammertime-#{version}.zip"
+            name "Hammertime"
+            desc "Track the pull requests you merge against daily targets"
+            homepage "https://github.com/$GITHUB_REPOSITORY"
+
+            depends_on macos: :tahoe
+
+            app "Hammertime.app"
+
+            zap trash: "~/Library/Application Support/GitHub Maxxer"
+          end
+          CASK
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/hammertime.rb
+          git commit -m "hammertime $version"
+          git push
+
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true

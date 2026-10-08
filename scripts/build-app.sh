@@ -24,13 +24,17 @@ app_bundle="$staging_directory/Hammertime.app"
 mkdir -p "$app_bundle/Contents/MacOS" "$app_bundle/Contents/Resources"
 cp "$binary_directory/Hammertime" "$app_bundle/Contents/MacOS/Hammertime"
 cp Resources/Info.plist "$app_bundle/Contents/Info.plist"
+tag="$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || echo v0.0.0)"
+version="${tag#v}"
+plutil -insert CFBundleShortVersionString -string "$version" "$app_bundle/Contents/Info.plist"
+plutil -insert CFBundleVersion -string "$version" "$app_bundle/Contents/Info.plist"
 if [[ -n "${GITHUB_OAUTH_CLIENT_ID:-}" ]]; then
   plutil -replace GitHubOAuthClientID -string "$GITHUB_OAUTH_CLIENT_ID" "$app_bundle/Contents/Info.plist"
 fi
 cp Resources/AppIcon.icns "$app_bundle/Contents/Resources/AppIcon.icns"
 cp -R "$binary_directory/Hammertime_GitHubMaxxer.bundle" "$app_bundle/Contents/Resources/"
 plutil -lint "$app_bundle/Contents/Info.plist"
-codesign --force --sign "${CODESIGN_IDENTITY:-Apple Development}" "$app_bundle"
+codesign --force --options runtime --timestamp --sign "${CODESIGN_IDENTITY:-Apple Development}" "$app_bundle"
 codesign --verify --deep --strict "$app_bundle"
 require_app_stopped
 rm -rf "$destination"
