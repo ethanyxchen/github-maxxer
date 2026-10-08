@@ -329,7 +329,7 @@ final class AppModel {
     persist()
   }
 
-  func connect(token: String, label: String, replacing id: UUID? = nil) async throws {
+  func connect(token: String, replacing id: UUID? = nil) async throws {
     guard !isPreview else { return }
     guard !isConnecting else { throw ConnectionError.busy }
     isConnecting = true
@@ -346,15 +346,13 @@ final class AppModel {
     try Task.checkCancellation()
     try credentials.save(token, for: connectionID)
     let isFirst = connections.isEmpty
-    let name = label.trimmingCharacters(in: .whitespacesAndNewlines)
     if let index = connections.firstIndex(where: { $0.id == connectionID }) {
       connections[index].profile = profile
       connections[index].snapshot = snapshot
-      if !name.isEmpty { connections[index].label = name }
     } else {
       connections.append(
         AccountConnection(
-          id: connectionID, label: name.isEmpty ? profile.login : name,
+          id: connectionID, label: profile.login,
           profile: profile, scope: RepositoryScope(), snapshot: snapshot
         ))
     }

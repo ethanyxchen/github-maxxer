@@ -5,9 +5,11 @@ struct ConnectionSheet: View {
   @Environment(AppModel.self) private var model
   @Environment(\.dismiss) private var dismiss
   let existing: AccountConnection?
-  @State private var label = ""
   @State private var error: String?
   @State private var connectionTask: Task<Void, Never>?
+  @State private var cliMissing = false
+  private let appBecameActive = NotificationCenter.default.publisher(
+    for: NSApplication.didBecomeActiveNotification)
 
   var body: some View {
     VStack(alignment: .leading, spacing: 20) {
@@ -21,11 +23,7 @@ struct ConnectionSheet: View {
             .foregroundStyle(.secondary).font(.callout)
         }
       }
-      Form {
-        TextField("Connection name", text: $label, prompt: Text("e.g. Personal or Work"))
-      }
-      .disabled(connectionTask != nil)
-      if GitHubCLI.executable == nil {
+      if cliMissing {
         VStack(alignment: .leading, spacing: 8) {
           Text("Install GitHub CLI and sign in, then connect.").font(.headline)
           Text("brew install gh\ngh auth login")
@@ -35,7 +33,7 @@ struct ConnectionSheet: View {
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
       } else {
         Text(
-          "Connects the account GitHub CLI is signed in to, with its permissions. Run gh auth login to sign in or switch accounts."
+          "Hammertime will link the GitHub account that GitHub CLI is signed in to, with the same permissions. To link a different account, run gh auth login first."
         )
         .font(.callout).foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
@@ -61,13 +59,18 @@ struct ConnectionSheet: View {
         .keyboardShortcut(.cancelAction)
         Button("Connect") { connect() }
           .buttonStyle(.prominent).keyboardShortcut(.defaultAction)
-          .disabled(connectionTask != nil || GitHubCLI.executable == nil)
+          .disabled(connectionTask != nil || cliMissing)
       }
     }
     .padding(28).frame(width: 510)
-    .onAppear { label = existing?.label ?? "" }
+    .task { await findCLI() }
+    .onReceive(appBecameActive) { _ in Task { await findCLI() } }
     .onDisappear { connectionTask?.cancel() }
     .interactiveDismissDisabled(connectionTask != nil)
+  }
+
+  private func findCLI() async {
+    cliMissing = await GitHubCLI.executable() == nil
   }
 
   private func connect() {
@@ -76,7 +79,7 @@ struct ConnectionSheet: View {
       do {
         let token = try await GitHubCLI.token()
         try Task.checkCancellation()
-        try await model.connect(token: token, label: label, replacing: existing?.id)
+        try await model.connect(token: token, replacing: existing?.id)
         dismiss()
       } catch is CancellationError {
       } catch {
