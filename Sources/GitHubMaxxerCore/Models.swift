@@ -114,6 +114,11 @@ public struct RepositoryScope: Codable, Sendable, Equatable {
     self.repositories = repositories
   }
 
+  public static func active(in pulls: [MergedPullRequest], login: String) -> RepositoryScope {
+    RepositoryScope(
+      allRepositories: false, owners: Set(pulls.map(\.repository.owner)).union([login]))
+  }
+
   public func includes(_ repository: Repository) -> Bool {
     allRepositories
       || includesOwner(repository.owner)

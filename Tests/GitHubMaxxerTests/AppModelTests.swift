@@ -51,6 +51,9 @@ struct AppModelTests {
     try await model.connect(token: "cli-credential")
 
     #expect(model.connections[0].label == model.connections[0].profile.login)
+    #expect(
+      model.connections[0].scope
+        == RepositoryScope(allRepositories: false, owners: ["renamed-user"]))
     let landing = try #require(model.landing)
     #expect(landing.pullRequests.isEmpty)
     #expect(model.isWelcoming == (landing.slam != nil))
@@ -206,27 +209,25 @@ struct AppModelTests {
     #expect(reloaded.sidebarOrganizations == ["beta", "acme"])
   }
 
-  @Test func sidebarListsOnlyOrganizationsWithMergedPullRequests() throws {
+  @Test func sidebarListsCountedOrganizationsWithOrWithoutMergedPullRequests() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appending(path: "state.json")
     let sample = PreviewData.connections(now: .now)[0]
-    let repositories = ["acme/app", "quiet/app"].map {
+    let repositories = ["acme/app", "quiet/app", "other/app"].map {
       Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
     }
     let connection = AccountConnection(
-      id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
+      id: UUID(), label: "Work", profile: sample.profile,
+      scope: RepositoryScope(allRepositories: false, owners: ["acme", "quiet"]),
       snapshot: GitHubSnapshot(
         repositories: repositories, pullRequests: [mergedPullRequest(in: repositories[0])],
         fetchedAt: .now))
-    let saved = OrganizationPreferences(names: ["quiet": "Quiet Co"])
-    try JSONEncoder().encode(FixtureState(connections: [connection], organizations: saved))
-      .write(to: url)
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
-    #expect(model.sidebarOrganizations == ["acme"])
-    #expect(model.displayName(for: "quiet") == "Quiet Co")
+    #expect(model.sidebarOrganizations == ["acme", "quiet"])
   }
 
   @Test func organizationPreferencesIgnoreOwnerCase() throws {

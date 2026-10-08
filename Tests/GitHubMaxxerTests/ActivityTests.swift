@@ -33,6 +33,12 @@ struct ActivityTests {
     )
   }
 
+  @Test func newAccountsCountOwnersTheyMergedIntoAndThemselves() {
+    let scope = RepositoryScope.active(
+      in: [pull("work", "2026-09-29T12:00:00Z", repo: "acme/app")], login: "me")
+    #expect(scope == RepositoryScope(allRepositories: false, owners: ["acme", "me"]))
+  }
+
   @Test func stopCountingAnOwnerWhileTrackingEverythingKeepsTheOthers() {
     let available = ["acme/app", "beta/app", "beta/tools", "me/dotfiles"].map {
       Repository(id: $0, nameWithOwner: $0, isPrivate: false)

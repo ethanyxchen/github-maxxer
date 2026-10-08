@@ -63,7 +63,7 @@ struct RepositoriesView: View {
               .fixedSize()
             }
             Text(
-              "Only PRs you author count. Counting an organisation or account includes all of its repositories, now and in future. Organisations you count appear in the sidebar once you merge a PR there."
+              "Only PRs you author count. Counting an organisation or account includes all of its repositories, now and in future. Organisations you count appear in the sidebar."
             )
             .font(.callout).foregroundStyle(.secondary)
           }
