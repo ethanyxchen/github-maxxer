@@ -82,12 +82,12 @@ struct GitHubClientTests {
     let snapshot = try await client.snapshot(login: "alex", now: fixedNow)
     #expect(snapshot.pullRequests.count == 2)
     #expect(snapshot.repositories.count == 1)
-    let queries = searches.values
-    #expect(queries.count == 3)
-    let leftEnd = queries[1].split(separator: " ").first { $0.hasPrefix("merged:<") }!.dropFirst(8)
-    let rightStart = queries[2].split(separator: " ").first { $0.hasPrefix("merged:>=") }!
-      .dropFirst(9)
-    #expect(leftEnd == rightStart)
+    let ranges = searches.values.map(mergedRange)
+    #expect(ranges.count == 3)
+    let halves = ranges.dropFirst().sorted { $0.start < $1.start }
+    #expect(halves.first!.start == ranges[0].start)
+    #expect(halves.last!.end == ranges[0].end)
+    #expect(halves.last!.start == halves.first!.end.addingTimeInterval(1))
   }
 
   @Test func rejectsMissingPaginationCursor() async {
@@ -112,6 +112,14 @@ private let emptyRepositories = StubResponse(
   body:
     "{\"data\":{\"viewer\":{\"repositories\":{\"nodes\":[],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}}"
 )
+
+private func mergedRange(_ search: String) -> DateInterval {
+  let bounds = search.split(separator: " ").first { $0.hasPrefix("merged:") }!
+    .dropFirst(7).components(separatedBy: "..")
+  let formatter = ISO8601DateFormatter()
+  return DateInterval(
+    start: formatter.date(from: bounds[0])!, end: formatter.date(from: bounds[1])!)
+}
 
 private func repositoryJSON(_ id: String) -> String {
   "{\"id\":\"\(id)\",\"nameWithOwner\":\"acme/\(id)\",\"isPrivate\":false,\"ownerKind\":{\"__typename\":\"Organization\"}}"
