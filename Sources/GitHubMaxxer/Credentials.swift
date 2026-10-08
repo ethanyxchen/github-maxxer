@@ -10,11 +10,7 @@ protocol CredentialStorage {
 
 @MainActor
 struct CredentialStore: CredentialStorage {
-  private let service: String
-
-  init(service: String = "com.ethanyxchen.github-maxxer") {
-    self.service = service
-  }
+  private let service = Bundle.main.bundleIdentifier ?? ""
 
   func save(_ token: String, for id: UUID) throws {
     let attributes: [CFString: Any] = [
