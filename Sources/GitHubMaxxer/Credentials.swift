@@ -67,31 +67,44 @@ enum CredentialError: LocalizedError {
 }
 
 enum GitHubCLI {
-  static var executable: URL? {
-    ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"].first {
-      FileManager.default.isExecutableFile(atPath: $0)
-    }.map { URL(fileURLWithPath: $0) }
+  static func executable(
+    shell: String = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+  ) async -> URL? {
+    await Task.detached {
+      let onShellPath = try? run(URL(filePath: shell), ["-ilc", "command -v gh"]).output
+        .split(whereSeparator: \.isNewline).last.map(String.init)
+      let candidates =
+        [onShellPath].compactMap(\.self) + [
+          "/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh",
+        ]
+      return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+        .map { URL(filePath: $0) }
+    }.value
   }
 
   static func token() async throws -> String {
-    try await Task.detached {
-      guard let executable else { throw CredentialError.cliUnavailable }
-      let process = Process()
-      let output = Pipe()
-      process.executableURL = executable
-      process.arguments = ["auth", "token", "--hostname", "github.com"]
-      process.standardOutput = output
-      process.standardError = FileHandle.nullDevice
-      process.standardInput = FileHandle.nullDevice
-      try process.run()
-      let data = output.fileHandleForReading.readDataToEndOfFile()
-      process.waitUntilExit()
-      let token = String(decoding: data, as: UTF8.self).trimmingCharacters(
-        in: .whitespacesAndNewlines)
-      guard process.terminationStatus == 0, !token.isEmpty else {
-        throw CredentialError.cliNotAuthenticated
-      }
+    guard let executable = await executable() else { throw CredentialError.cliUnavailable }
+    return try await Task.detached {
+      let result = try run(executable, ["auth", "token", "--hostname", "github.com"])
+      let token = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard result.status == 0, !token.isEmpty else { throw CredentialError.cliNotAuthenticated }
       return token
     }.value
+  }
+
+  private static func run(_ executable: URL, _ arguments: [String]) throws -> (
+    status: Int32, output: String
+  ) {
+    let process = Process()
+    let output = Pipe()
+    process.executableURL = executable
+    process.arguments = arguments
+    process.standardOutput = output
+    process.standardError = FileHandle.nullDevice
+    process.standardInput = FileHandle.nullDevice
+    try process.run()
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+    return (process.terminationStatus, String(decoding: data, as: UTF8.self))
   }
 }

@@ -24,7 +24,7 @@ struct AppModelTests {
     let model = AppModel(
       stateURL: url, credentials: store, session: URLSession(configuration: configuration))
 
-    try await model.connect(token: "cli-credential", label: "")
+    try await model.connect(token: "cli-credential")
 
     #expect(model.connections.count == 1)
     #expect(model.connections[0].id == connection.id)
@@ -46,13 +46,14 @@ struct AppModelTests {
       stateURL: directory.appending(path: "state.json"), credentials: TestCredentials(),
       session: URLSession(configuration: configuration))
 
-    try await model.connect(token: "cli-credential", label: "")
+    try await model.connect(token: "cli-credential")
 
+    #expect(model.connections[0].label == model.connections[0].profile.login)
     let landing = try #require(model.landing)
     #expect(landing.pullRequests.isEmpty)
     #expect(model.isWelcoming == (landing.slam != nil))
 
-    try await model.connect(token: "cli-credential", label: "")
+    try await model.connect(token: "cli-credential")
 
     #expect(model.landing == landing)
   }
