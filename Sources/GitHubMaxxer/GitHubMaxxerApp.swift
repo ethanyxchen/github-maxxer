@@ -93,9 +93,11 @@ private struct MenuBarView: View {
   @Environment(\.openWindow) private var openWindow
 
   var body: some View {
-    ForEach(GoalPeriod.allCases) { period in
-      let progress = model.progress(for: period)
-      Text("\(period.title): \(progress.count) / \(progress.target) PRs")
+    Section(GoalPeriod.day.title) {
+      ForEach(model.workspaces, id: \.self) { workspace in
+        let progress = model.progress(for: .day, filter: workspace)
+        Text("\(model.title(for: workspace)): \(progress.count) / \(progress.target) PRs")
+      }
     }
     Divider()
     Button("Open Hammertime") {
