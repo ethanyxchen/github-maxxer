@@ -129,7 +129,7 @@ func withShadow(alpha: CGFloat, offset: NSSize, blur: CGFloat, _ draw: () -> Voi
 }
 
 func ember(_ alpha: CGFloat = 1) -> NSColor {
-  NSColor(calibratedRed: 1, green: 0.5, blue: 0.12, alpha: alpha)
+  NSColor(srgbRed: 0x89 / 255, green: 0x57 / 255, blue: 0xE5 / 255, alpha: alpha)
 }
 
 func cracks(from impact: NSPoint, color: NSColor, width: CGFloat) {
@@ -206,7 +206,7 @@ func appIcon(_ hammer: Hammer) -> NSBitmapImageRep {
       .draw(fromCenter: impact, radius: 0, toCenter: impact, radius: 70, options: [])
 
     noise = Noise(23)
-    NSColor(srgbRed: 0x89 / 255, green: 0x57 / 255, blue: 0xE5 / 255, alpha: 1).setStroke()
+    ember().setStroke()
     for _ in 0..<7 {
       let angle = .pi * (0.12 + noise.next() * 0.76)
       let distance = 150 + noise.next() * 40
