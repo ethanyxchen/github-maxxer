@@ -23,7 +23,7 @@ brew install gh
 gh auth login
 ```
 
-Then choose **Connect GitHub** in Hammertime, name the connection Personal or Work, and click **Connect**. Hammertime imports the account GitHub CLI is signed in to, with the same permissions. GitHub CLI's default sign in includes private repositories; organizations may require approval or SSO authorization before their private activity is accessible.
+Then choose **Connect GitHub** in Hammertime, name the connection Personal or Work, and click **Connect**. Hammertime imports the account GitHub CLI is signed in to, with the same permissions. Its credential is saved in macOS Keychain. GitHub CLI's default sign in includes private repositories; organizations may require approval or SSO authorization before their private activity is accessible.
 
 To add another account, run `gh auth login` for it, which also makes it GitHub CLI's active account, then connect again in Hammertime. Connecting the same account again updates its credential and activity while keeping its name and repository selections. Reconnect or disconnect from **Targets & Accounts**. Disconnecting removes Hammertime's copy of the credential; GitHub CLI stays signed in.
 
