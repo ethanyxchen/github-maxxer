@@ -60,7 +60,7 @@ struct ConnectionSheet: View {
         }
         .keyboardShortcut(.cancelAction)
         Button("Connect") { connect() }
-          .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+          .buttonStyle(.prominent).keyboardShortcut(.defaultAction)
           .disabled(connectionTask != nil || GitHubCLI.executable == nil)
       }
     }

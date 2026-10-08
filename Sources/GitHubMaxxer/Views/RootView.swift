@@ -350,7 +350,7 @@ private struct WelcomeView: View {
         .lineSpacing(4)
       }
       Button("Connect GitHub", action: connect)
-        .buttonStyle(.borderedProminent).controlSize(.large)
+        .buttonStyle(.prominent).controlSize(.large)
       Label("Your credentials stay in macOS Keychain", systemImage: "lock")
         .font(.caption).foregroundStyle(.secondary)
     }
