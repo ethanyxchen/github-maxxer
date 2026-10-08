@@ -16,13 +16,16 @@ Update to the latest release with `brew upgrade --cask hammertime`.
 
 ## Connect GitHub
 
-Choose **Connect GitHub**, name the connection Personal or Work, and click **Sign in with GitHub**. The app opens your browser and shows a short code. Enter that code on GitHub and approve access; your activity loads automatically. No manual access token or GitHub CLI installation is needed.
+Hammertime connects through [GitHub CLI](https://cli.github.com). Install it and sign in once:
 
-**Include private repositories** requests GitHub's `repo`, `read:user`, and `read:org` OAuth scopes. GitHub's `repo` permission also grants write access; this app only reads data. Turn the option off to request just `read:user` and `read:org` for public activity. Organizations may require approval or SSO authorization before private activity is accessible.
+```sh
+brew install gh
+gh auth login
+```
 
-Credentials are saved in macOS Keychain after the app validates the account and loads its activity. You can add multiple GitHub accounts. Signing in to the same account again updates its credential and activity while keeping its name and repository selections. Reconnect or disconnect from **Targets & Accounts**. Disconnect removes the local credential; revoke the app's access separately in GitHub's authorized applications settings if desired.
+Then choose **Connect GitHub** in Hammertime, name the connection Personal or Work, and click **Connect**. Hammertime imports the account GitHub CLI is signed in to, with the same permissions. GitHub CLI's default sign in includes private repositories; organizations may require approval or SSO authorization before their private activity is accessible.
 
-**Use GitHub CLI** imports the account already signed in to `github.com` through `gh auth login`. This option uses your CLI credential's existing permissions rather than the private repositories toggle, which configures browser sign in only.
+To add another account, run `gh auth login` for it, which also makes it GitHub CLI's active account, then connect again in Hammertime. Connecting the same account again updates its credential and activity while keeping its name and repository selections. Reconnect or disconnect from **Targets & Accounts**. Disconnecting removes Hammertime's copy of the credential; GitHub CLI stays signed in.
 
 ## Local data
 
