@@ -87,7 +87,8 @@ struct AppModelTests {
     }
     let connection = AccountConnection(
       id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
-      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [], fetchedAt: .now))
+      snapshot: GitHubSnapshot(
+        repositories: [], pullRequests: repositories.map(mergedPullRequest), fetchedAt: .now))
     try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
@@ -117,7 +118,8 @@ struct AppModelTests {
     let connection = AccountConnection(
       id: UUID(), label: "Work", profile: sample.profile,
       scope: RepositoryScope(allRepositories: false, owners: ["acme", "beta"]),
-      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [], fetchedAt: .now))
+      snapshot: GitHubSnapshot(
+        repositories: [], pullRequests: repositories.map(mergedPullRequest), fetchedAt: .now))
     try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
@@ -176,13 +178,10 @@ struct AppModelTests {
     let repositories = ["acme/app", "beta/app"].map {
       Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
     }
-    let merged = MergedPullRequest(
-      id: "beta-1", title: "Ship", number: 1,
-      url: URL(string: "https://github.com/beta/app/pull/1")!,
-      mergedAt: .now.addingTimeInterval(-1), repository: repositories[1])
+    let pulls = repositories.map(mergedPullRequest)
     let connection = AccountConnection(
       id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
-      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [merged], fetchedAt: .now))
+      snapshot: GitHubSnapshot(repositories: [], pullRequests: pulls, fetchedAt: .now))
     try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(model.sidebarOrganizations == ["acme", "beta"])
@@ -197,14 +196,37 @@ struct AppModelTests {
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.sidebarOrganizations == ["acme"])
     #expect(reloaded.isPinned("beta"))
-    #expect(reloaded.pullRequests(for: .all).isEmpty)
-    #expect(reloaded.progress(for: .day).count == 0)
+    #expect(reloaded.pullRequests(for: .all) == [pulls[0]])
+    #expect(reloaded.progress(for: .day).count == 1)
     #expect(reloaded.displayName(for: "acme") == "Acme Inc")
     reloaded.renameOrganization("acme", to: " ")
     reloaded.setHidden(false, organization: "beta")
-    #expect(reloaded.pullRequests(for: .all) == [merged])
+    #expect(Set(reloaded.pullRequests(for: .all)) == Set(pulls))
     #expect(reloaded.displayName(for: "acme") == "acme")
     #expect(reloaded.sidebarOrganizations == ["beta", "acme"])
+  }
+
+  @Test func sidebarListsOnlyOrganizationsWithMergedPullRequests() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let repositories = ["acme/app", "quiet/app"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false, ownerKind: .organization)
+    }
+    let connection = AccountConnection(
+      id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
+      snapshot: GitHubSnapshot(
+        repositories: repositories, pullRequests: [mergedPullRequest(in: repositories[0])],
+        fetchedAt: .now))
+    let saved = OrganizationPreferences(names: ["quiet": "Quiet Co"])
+    try JSONEncoder().encode(FixtureState(connections: [connection], organizations: saved))
+      .write(to: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
+
+    #expect(model.sidebarOrganizations == ["acme"])
+    #expect(model.displayName(for: "quiet") == "Quiet Co")
   }
 
   @Test func organizationPreferencesIgnoreOwnerCase() throws {
@@ -218,7 +240,8 @@ struct AppModelTests {
     }
     let connection = AccountConnection(
       id: UUID(), label: "Work", profile: sample.profile, scope: RepositoryScope(),
-      snapshot: GitHubSnapshot(repositories: repositories, pullRequests: [], fetchedAt: .now))
+      snapshot: GitHubSnapshot(
+        repositories: [], pullRequests: repositories.map(mergedPullRequest), fetchedAt: .now))
     let saved = OrganizationPreferences(
       pinned: ["Beta"], hidden: ["ACME"], names: ["Beta": "Beta Labs"])
     try JSONEncoder().encode(
@@ -489,6 +512,13 @@ struct AppModelTests {
 
     #expect(model.banner == nil)
   }
+}
+
+private func mergedPullRequest(in repository: Repository) -> MergedPullRequest {
+  MergedPullRequest(
+    id: repository.id, title: "Ship", number: 1,
+    url: URL(string: "https://github.com/\(repository.nameWithOwner)/pull/1")!,
+    mergedAt: .now.addingTimeInterval(-1), repository: repository)
 }
 
 @MainActor
