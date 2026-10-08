@@ -18,19 +18,12 @@ public struct GitHubClient: Sendable {
 
   public func snapshot(login: String, now: Date = .now) async throws -> GitHubSnapshot {
     async let repositories = repositories()
-    let start = Activity.historyInterval(endingAt: now).start
-    async let pulls = mergedPullRequests(login: login, from: start, through: now)
-    let (accessible, merged) = try await (repositories, pulls)
-    var seen = Set<String>()
-    let visibleRepositories = (accessible + merged.map(\.repository)).filter {
-      seen.insert($0.id).inserted
-    }
-    .sorted { $0.nameWithOwner.localizedStandardCompare($1.nameWithOwner) == .orderedAscending }
-    return GitHubSnapshot(
-      repositories: visibleRepositories, pullRequests: merged, fetchedAt: now)
+    async let pulls = mergedPullRequests(
+      login: login, from: Activity.historyInterval(endingAt: now).start, through: now)
+    return try await GitHubSnapshot(repositories: repositories, pullRequests: pulls, fetchedAt: now)
   }
 
-  private func repositories() async throws -> [Repository] {
+  public func repositories() async throws -> [Repository] {
     var cursor: String?
     var result: [Repository] = []
     repeat {
@@ -53,7 +46,7 @@ public struct GitHubClient: Sendable {
     return result
   }
 
-  private func mergedPullRequests(login: String, from start: Date, through end: Date) async throws
+  public func mergedPullRequests(login: String, from start: Date, through end: Date) async throws
     -> [MergedPullRequest]
   {
     let formatter = ISO8601DateFormatter()

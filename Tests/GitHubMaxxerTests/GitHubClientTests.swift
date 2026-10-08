@@ -81,7 +81,7 @@ struct GitHubClientTests {
     }
     let snapshot = try await client.snapshot(login: "alex", now: fixedNow)
     #expect(snapshot.pullRequests.count == 2)
-    #expect(snapshot.repositories.count == 1)
+    #expect(snapshot.visibleRepositories.count == 1)
     let ranges = searches.values.map(mergedRange)
     #expect(ranges.count == 3)
     let halves = ranges.dropFirst().sorted { $0.start < $1.start }
