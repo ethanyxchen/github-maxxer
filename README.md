@@ -27,10 +27,6 @@ Then choose **Connect GitHub** in Hammertime, name the connection Personal or Wo
 
 To add another account, run `gh auth login` for it, which also makes it GitHub CLI's active account, then connect again in Hammertime. Connecting the same account again updates its credential and activity while keeping its name and repository selections. Reconnect or disconnect from **Targets & Accounts**. Disconnecting removes Hammertime's copy of the credential; GitHub CLI stays signed in.
 
-## Local data
-
-Credentials live only in macOS Keychain. Targets, repository selections, and fetched activity are saved under `~/Library/Application Support/GitHub Maxxer/state.json`, with access restricted to your user. The app contacts GitHub directly and has no analytics or backend. Disconnecting removes that connection's Keychain credential and local activity.
-
 ## Credits
 
 - ["Sledgehammer"](https://sketchfab.com/3d-models/sledgehammer-8194ce123fd64429b183c26df7fba17e) by Yaroslav Lazun, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
