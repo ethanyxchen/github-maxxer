@@ -24,6 +24,23 @@ struct PageLayersTests {
     #expect(backdrop[45] == background)
     #expect(backdrop[48] == background)
   }
+
+  @Test func flattensFaintDetailOntoTheBackdropAndKeepsItInContent() throws {
+    let background: UInt32 = 0xFFFC_FCFC
+    let faint: UInt32 = 0xFFF4_F4F4
+    var pixels = [UInt32](repeating: background, count: 200 * 4)
+    for row in 0..<4 {
+      for column in 60..<120 { pixels[row * 200 + column] = faint }
+    }
+
+    let layers = try #require(PageLayers(image(pixels, width: 200, height: 4)))
+    let content = try bytes(layers.content)
+    let backdrop = try bytes(layers.backdrop)
+
+    #expect(content[10] == 0)
+    #expect(content[90] == faint)
+    #expect(backdrop[90] == background)
+  }
 }
 
 private func image(_ pixels: [UInt32], width: Int, height: Int) -> CGImage {

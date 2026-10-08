@@ -24,6 +24,12 @@ struct PageLayers {
     var counts = [Int](repeating: 0, count: 4096)
     for pixel in pixels { counts[Self.bin(pixel)] += 1 }
     let isBackground = counts.map { $0 * 10 > pixels.count }
+    var tallies = [UInt32: Int]()
+    for pixel in pixels where isBackground[Self.bin(pixel)] { tallies[pixel, default: 0] += 1 }
+    var tones = [(pixel: UInt32, count: Int)](repeating: (0, 0), count: 4096)
+    for (pixel, count) in tallies where count > tones[Self.bin(pixel)].count {
+      tones[Self.bin(pixel)] = (pixel, count)
+    }
 
     var content = pixels
     var backdrop = pixels
@@ -38,14 +44,14 @@ struct PageLayers {
         }
         run = column + 1
       }
-      var fill = span.first { surface[$0 - span.lowerBound] }.map { pixels[$0] } ?? 0
+      var fill =
+        span.first { surface[$0 - span.lowerBound] }.map { tones[Self.bin(pixels[$0])].pixel } ?? 0
       for index in span {
         if surface[index - span.lowerBound] {
-          fill = pixels[index]
-          content[index] = 0
-        } else {
-          backdrop[index] = fill
+          fill = tones[Self.bin(pixels[index])].pixel
+          if pixels[index] == fill { content[index] = 0 }
         }
+        backdrop[index] = fill
       }
     }
     guard
