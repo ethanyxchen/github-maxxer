@@ -154,8 +154,17 @@ private struct PageCapture: NSViewRepresentable {
     guard let window = view.window?.contentView?.superview else { return nil }
     let frame = view.convert(view.bounds, to: window)
     guard let bitmap = window.bitmapImageRepForCachingDisplay(in: frame) else { return nil }
+    let pockets = scrollPockets(in: window).filter { !$0.isHidden }
+    for pocket in pockets { pocket.isHidden = true }
     window.cacheDisplay(in: frame, to: bitmap)
+    for pocket in pockets { pocket.isHidden = false }
     return bitmap.cgImage
+  }
+
+  private static func scrollPockets(in view: NSView) -> [NSView] {
+    view.subviews.flatMap {
+      String(describing: type(of: $0)) == "NSScrollPocket" ? [$0] : scrollPockets(in: $0)
+    }
   }
 
   private static func hideChrome(above view: NSView, during slam: Date) async {

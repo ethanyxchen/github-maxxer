@@ -31,28 +31,32 @@ struct PageLayers {
       tones[Self.bin(pixel)] = (pixel, count)
     }
 
+    var isTall = [Bool](repeating: false, count: pixels.count)
+    for column in 0..<width {
+      let runs = Self.runs(count: height) { isBackground[Self.bin(pixels[$0 * width + column])] }
+      for row in runs.joined() { isTall[row * width + column] = true }
+    }
+
     var content = pixels
     var backdrop = pixels
     for row in 0..<height {
       let span = row * width..<(row + 1) * width
-      var surface = [Bool](repeating: false, count: width)
-      var run = 0
-      for column in 0...width {
-        if column < width, isBackground[Self.bin(pixels[span.lowerBound + column])] { continue }
-        if column - run >= Self.minimumRun {
-          for flat in run..<column { surface[flat] = true }
-        }
-        run = column + 1
+      let surfaces = Self.runs(count: width) { isTall[span.lowerBound + $0] }.map {
+        $0.lowerBound + span.lowerBound..<$0.upperBound + span.lowerBound
       }
-      var fill =
-        span.first { surface[$0 - span.lowerBound] }.map { tones[Self.bin(pixels[$0])].pixel } ?? 0
-      for index in span {
-        if surface[index - span.lowerBound] {
-          fill = tones[Self.bin(pixels[index])].pixel
-          if pixels[index] == fill { content[index] = 0 }
-        }
-        backdrop[index] = fill
+      let fills = surfaces.map {
+        tones[Self.bin(pixels[($0.lowerBound + $0.upperBound) / 2])].pixel
       }
+      var gap = span.lowerBound
+      for (surface, fill) in zip(surfaces, fills) {
+        backdrop.replaceSubrange(
+          gap..<surface.upperBound, with: repeatElement(fill, count: surface.upperBound - gap))
+        for index in surface where pixels[index] == fill { content[index] = 0 }
+        gap = surface.upperBound
+      }
+      let tail = fills.last ?? 0
+      backdrop.replaceSubrange(
+        gap..<span.upperBound, with: repeatElement(tail, count: span.upperBound - gap))
     }
     guard
       let content = Self.image(content, width: width, height: height),
@@ -63,6 +67,17 @@ struct PageLayers {
   }
 
   private static let minimumRun = 12
+
+  private static func runs(count: Int, where isFlat: (Int) -> Bool) -> [Range<Int>] {
+    var runs: [Range<Int>] = []
+    var start = 0
+    for position in 0...count {
+      if position < count, isFlat(position) { continue }
+      if position - start >= minimumRun { runs.append(start..<position) }
+      start = position + 1
+    }
+    return runs
+  }
 
   private static func bin(_ pixel: UInt32) -> Int {
     Int(pixel >> 4 & 0xF | pixel >> 8 & 0xF0 | pixel >> 12 & 0xF00)
