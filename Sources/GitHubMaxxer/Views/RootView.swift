@@ -63,6 +63,48 @@ struct RootView: View {
   @State private var showsShortcuts = false
 
   var body: some View {
+    Group {
+      if model.connections.isEmpty {
+        WelcomeView { connectionDraft = ConnectionDraft() }
+          .toolbar(removing: .title)
+          .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+      } else {
+        navigation
+      }
+    }
+    .overlay { HammerSlam(landing: model.landing).ignoresSafeArea() }
+    .sheet(item: $connectionDraft) { draft in
+      ConnectionSheet(existing: draft.existing)
+        .environment(model)
+    }
+    .onChange(of: scenePhase) { _, phase in
+      if phase == .active { Task { await model.refresh() } }
+    }
+    .alert(
+      "Rename \(renaming ?? "")",
+      isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
+    ) {
+      TextField("Name", text: $newName)
+      Button("Rename") {
+        if let renaming { model.renameOrganization(renaming, to: newName) }
+      }
+      .keyboardShortcut(.defaultAction)
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("The new name only appears in Hammertime.")
+    }
+    .onChange(of: model.sidebarOrganizations) { _, organizations in
+      if case .activity(.organization(let owner)) = selection, !organizations.contains(owner) {
+        selection = .activity(.all)
+      }
+    }
+    .onAppear { model.startRefreshing() }
+    .onChange(of: appearsActive, initial: true) { _, active in model.setFocused(active) }
+    .onDisappear { model.setFocused(false) }
+    .frame(minWidth: 920, minHeight: 680)
+  }
+
+  private var navigation: some View {
     NavigationSplitView {
       List(selection: $selection) {
         section("Activity") {
@@ -113,9 +155,7 @@ struct RootView: View {
             }
           }
           .keyboardShortcut("r", modifiers: .command)
-          .disabled(
-            model.isRefreshing || model.isConnecting || model.connections.isEmpty || model.isPreview
-          )
+          .disabled(model.isRefreshing || model.isConnecting || model.isPreview)
           .help(model.isRefreshing ? "Refreshing GitHub activity" : "Refresh GitHub activity (⌘R)")
         }
       }
@@ -123,36 +163,6 @@ struct RootView: View {
     .navigationSplitViewStyle(.balanced)
     .focusedSceneValue(\.destination, $selection)
     .onModifierKeysChanged(mask: .command) { _, keys in showsShortcuts = keys.contains(.command) }
-    .overlay { HammerSlam(landing: model.landing).ignoresSafeArea() }
-    .sheet(item: $connectionDraft) { draft in
-      ConnectionSheet(existing: draft.existing)
-        .environment(model)
-    }
-    .onChange(of: scenePhase) { _, phase in
-      if phase == .active { Task { await model.refresh() } }
-    }
-    .alert(
-      "Rename \(renaming ?? "")",
-      isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
-    ) {
-      TextField("Name", text: $newName)
-      Button("Rename") {
-        if let renaming { model.renameOrganization(renaming, to: newName) }
-      }
-      .keyboardShortcut(.defaultAction)
-      Button("Cancel", role: .cancel) {}
-    } message: {
-      Text("The new name only appears in Hammertime.")
-    }
-    .onChange(of: model.sidebarOrganizations) { _, organizations in
-      if case .activity(.organization(let owner)) = selection, !organizations.contains(owner) {
-        selection = .activity(.all)
-      }
-    }
-    .onAppear { model.startRefreshing() }
-    .onChange(of: appearsActive, initial: true) { _, active in model.setFocused(active) }
-    .onDisappear { model.setFocused(false) }
-    .frame(minWidth: 920, minHeight: 680)
   }
 
   private func section(_ title: String, @ViewBuilder rows: () -> some View) -> some View {
@@ -233,47 +243,33 @@ struct RootView: View {
     }
   }
 
-  @ViewBuilder
   private var sidebarFooter: some View {
     VStack(alignment: .leading, spacing: 0) {
       Rule()
-      if model.connections.isEmpty {
-        Button {
-          connectionDraft = ConnectionDraft()
-        } label: {
-          Label("Connect GitHub", systemImage: "plus")
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+      VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 8) {
+          Lamp(isOn: model.errors.isEmpty && model.lastUpdated != nil)
+          Text(
+            model.connections.count == 1
+              ? model.connections[0].label : "\(model.connections.count) accounts"
+          )
+          .fontWeight(.medium).lineLimit(1)
         }
-        .buttonStyle(.plain)
-        .padding(20)
-        .disabled(model.isPreview)
-      } else {
-        VStack(alignment: .leading, spacing: 4) {
-          HStack(spacing: 8) {
-            Lamp(isOn: model.errors.isEmpty && model.lastUpdated != nil)
-            Text(
-              model.connections.count == 1
-                ? model.connections[0].label : "\(model.connections.count) accounts"
-            )
-            .fontWeight(.medium).lineLimit(1)
+        Group {
+          if !model.errors.isEmpty {
+            Text("Needs attention")
+          } else if let date = model.lastUpdated {
+            Text("Updated \(date, style: .relative) ago")
+          } else {
+            Text("Waiting for first update")
           }
-          Group {
-            if !model.errors.isEmpty {
-              Text("Needs attention")
-            } else if let date = model.lastUpdated {
-              Text("Updated \(date, style: .relative) ago")
-            } else {
-              Text("Waiting for first update")
-            }
-            Text("\(model.trackedRepositoryCount) repositories")
-          }
-          .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
-          .padding(.leading, 15)
+          Text("\(model.trackedRepositoryCount) repositories")
         }
-        .padding(.horizontal, 20).padding(.vertical, 14)
-        .accessibilityElement(children: .combine)
+        .font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.secondary)
+        .padding(.leading, 15)
       }
+      .padding(.horizontal, 20).padding(.vertical, 14)
+      .accessibilityElement(children: .combine)
     }
     .background(Palette.sidebar)
   }
@@ -282,11 +278,7 @@ struct RootView: View {
   private var content: some View {
     switch selection {
     case .activity(let filter):
-      if model.connections.isEmpty {
-        WelcomeView { connectionDraft = ConnectionDraft() }
-      } else {
-        ActivityView(filter: filter, title: title(for: selection)).id(filter)
-      }
+      ActivityView(filter: filter, title: title(for: selection)).id(filter)
     case .repositories:
       VStack(spacing: 0) {
         PageTitle(title(for: selection)).padding([.horizontal, .top], 20)
