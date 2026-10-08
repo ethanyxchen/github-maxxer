@@ -141,11 +141,7 @@ struct ActivityView: View {
   private func log(_ days: [(day: Date, pulls: [MergedPullRequest])]) -> some View {
     if days.isEmpty {
       if search.isEmpty {
-        ContentUnavailableView {
-          Text("No merges")
-        } description: {
-          Text("Your merged PRs show up here.")
-        }
+        ContentUnavailableView { Text("Quiet week — no PRs merged") }
       } else {
         ContentUnavailableView.search(text: search)
       }
