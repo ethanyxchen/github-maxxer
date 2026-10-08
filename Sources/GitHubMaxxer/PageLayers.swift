@@ -24,6 +24,12 @@ struct PageLayers {
     var counts = [Int](repeating: 0, count: 4096)
     for pixel in pixels { counts[Self.bin(pixel)] += 1 }
     let isBackground = counts.map { $0 * 10 > pixels.count }
+    var tallies = [UInt32: Int]()
+    for pixel in pixels where isBackground[Self.bin(pixel)] { tallies[pixel, default: 0] += 1 }
+    var tones = [(pixel: UInt32, count: Int)](repeating: (0, 0), count: 4096)
+    for (pixel, count) in tallies where count > tones[Self.bin(pixel)].count {
+      tones[Self.bin(pixel)] = (pixel, count)
+    }
 
     var isTall = [Bool](repeating: false, count: pixels.count)
     for column in 0..<width {
@@ -38,12 +44,14 @@ struct PageLayers {
       let surfaces = Self.runs(count: width) { isTall[span.lowerBound + $0] }.map {
         $0.lowerBound + span.lowerBound..<$0.upperBound + span.lowerBound
       }
-      let fills = surfaces.map { pixels[($0.lowerBound + $0.upperBound) / 2] }
+      let fills = surfaces.map {
+        tones[Self.bin(pixels[($0.lowerBound + $0.upperBound) / 2])].pixel
+      }
       var gap = span.lowerBound
       for (surface, fill) in zip(surfaces, fills) {
         backdrop.replaceSubrange(
           gap..<surface.upperBound, with: repeatElement(fill, count: surface.upperBound - gap))
-        content.replaceSubrange(surface, with: repeatElement(0, count: surface.count))
+        for index in surface where pixels[index] == fill { content[index] = 0 }
         gap = surface.upperBound
       }
       let tail = fills.last ?? 0

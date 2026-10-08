@@ -180,6 +180,10 @@ final class AppModel {
 
   var banner: Landing? { announced.isEmpty ? nil : held }
 
+  var isWelcoming: Bool {
+    connections.isEmpty || landing.map { $0.pullRequests.isEmpty && $0.reveal > now } == true
+  }
+
   private var merged: [MergedPullRequest] {
     let interval = Activity.historyInterval(endingAt: now)
     return Activity.mergedPullRequests(
@@ -283,14 +287,6 @@ final class AppModel {
 
   private var personalLogins: Set<String> { Set(connections.map(\.profile.login)) }
 
-  var trackedRepositoryCount: Int {
-    Set(
-      connections.flatMap { account in
-        account.snapshot.repositories.filter { account.scope.includes($0) }.map(\.id)
-      }
-    ).count
-  }
-
   var lastUpdated: Date? { connections.map { $0.snapshot.fetchedAt }.min() }
   var errors: [String] {
     (storageError.map { [$0] } ?? [])
@@ -348,6 +344,7 @@ final class AppModel {
     let snapshot = try await client.snapshot(login: profile.login)
     try Task.checkCancellation()
     try credentials.save(token, for: connectionID)
+    let isFirst = connections.isEmpty
     let name = label.trimmingCharacters(in: .whitespacesAndNewlines)
     if let index = connections.firstIndex(where: { $0.id == connectionID }) {
       connections[index].profile = profile
@@ -362,6 +359,7 @@ final class AppModel {
     }
     connectionErrors[connectionID] = nil
     now = .now
+    if isFirst { slam(Landing([], joining: nil, since: now)) }
     persist()
   }
 
@@ -413,8 +411,11 @@ final class AppModel {
       Logger.merges.log("Holding \(arrived.count) merges for the banner")
       return
     }
-    let landing = Landing(arrived, joining: landing, since: started)
     Logger.merges.log("Slamming \(arrived.count) merges in the window")
+    slam(Landing(arrived, joining: landing, since: started))
+  }
+
+  private func slam(_ landing: Landing) {
     self.landing = landing
     Task {
       try? await Task.sleep(for: .seconds(max(0, landing.reveal.timeIntervalSinceNow)))
