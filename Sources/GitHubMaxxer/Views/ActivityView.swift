@@ -27,19 +27,22 @@ struct ActivityView: View {
 
   var body: some View {
     let pulls = model.pullRequests(for: filter)
-    return ScrollViewReader { proxy in
-      ScrollView {
-        VStack(spacing: 0) {
-          PageTitle(title).padding(.top, 28)
-          progress(pulls).padding(.top, 24).padding(.bottom, 32)
-          log(days(in: pulls)).padding(.vertical, 20).id("log")
-          if search.isEmpty { pager.padding(.bottom, 28) }
+    return GeometryReader { viewport in
+      ScrollViewReader { proxy in
+        ScrollView {
+          VStack(spacing: 0) {
+            PageTitle(title).padding(.top, 28)
+            progress(pulls).padding(.top, 24).padding(.bottom, 32)
+            log(days(in: pulls)).padding(.vertical, 20).id("log")
+            Spacer(minLength: 0)
+            if search.isEmpty { pager.padding(.bottom, 28) }
+          }
+          .padding(.horizontal, 40)
+          .frame(maxWidth: 960, minHeight: viewport.size.height)
+          .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 40)
-        .frame(maxWidth: 960)
-        .frame(maxWidth: .infinity)
+        .onChange(of: page) { proxy.scrollTo("log", anchor: .top) }
       }
-      .onChange(of: page) { proxy.scrollTo("log", anchor: .top) }
     }
     .background(Palette.panel)
     .foregroundStyle(Palette.ink)
@@ -139,9 +142,9 @@ struct ActivityView: View {
     if days.isEmpty {
       if search.isEmpty {
         ContentUnavailableView {
-          Text("No merges in these 7 days")
+          Text("No merges")
         } description: {
-          Text("PRs you author appear here after they merge in a tracked repository.")
+          Text("Your merged PRs show up here.")
         }
       } else {
         ContentUnavailableView.search(text: search)
