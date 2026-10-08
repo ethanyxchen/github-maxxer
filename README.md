@@ -4,6 +4,14 @@ A native macOS app for tracking the pull requests you merge, across personal pro
 
 Set daily, weekly, and monthly targets for personal work and each organisation. Connect multiple GitHub accounts, choose entire repository owners or individual repositories, and see your progress against them. The app uses SwiftUI navigation, forms, tables, toolbars, settings, and a menu bar item, and follows your system appearance.
 
+## Install
+
+Requires macOS 26 or newer.
+
+```sh
+brew install --cask ethanyxchen/tap/hammertime
+```
+
 ## Run locally
 
 Requires macOS 26 or newer and Xcode 26 or newer with Swift 6.2. The hammer's textures, lighting and sounds are stored with [Git LFS](https://git-lfs.com), so run `git lfs install` before cloning, or `git lfs pull` in an existing clone.
@@ -21,13 +29,30 @@ Local builds use an **Apple Development** certificate with a Team ID so Keychain
 CODESIGN_IDENTITY='Apple Development: your name (identity)' ./scripts/build-app.sh
 ```
 
-List available identities with `security find-identity -v -p codesigning`. The first build with a new identity may need Keychain approval. Reconnect the GitHub account to save its credential with the current app's access description. Distributing the app to other Macs requires Developer ID signing and notarization.
+List available identities with `security find-identity -v -p codesigning`. The first build with a new identity may need Keychain approval. Reconnect the GitHub account to save its credential with the current app's access description.
 
 Self-signed and ad hoc builds (`CODESIGN_IDENTITY=-`) do not preserve Keychain approval across rebuilds because their code-hash partition changes.
 
 Open `Package.swift` in Xcode to work on the app. There are no external dependencies.
 
 To replay the merge celebration, run `./scripts/replay-slam.sh`. It quits Hammertime, forgets the most recently merged PR, and relaunches the app in the foreground so the next refresh lands it again and the slam plays in the window. Pass `--banner` to relaunch it in the background instead, so the slam plays on the floating card.
+
+## Release
+
+Pushing a `v*` tag runs the release workflow. It builds the app from that tag with the tag's version, signs it with Developer ID, notarizes and staples it, attaches `Hammertime-<version>.zip` to a GitHub release, and updates the cask in [ethanyxchen/homebrew-tap](https://github.com/ethanyxchen/homebrew-tap).
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The workflow reads these repository secrets:
+
+- `DEVELOPER_ID_P12` and `DEVELOPER_ID_P12_PASSWORD`: the **Developer ID Application** certificate and its private key, exported from Keychain Access as a `.p12` and base64 encoded. Create the certificate in **Xcode → Settings → Apple Accounts → your team → Manage Certificates → + → Developer ID Application**.
+- `NOTARY_KEY`, `NOTARY_KEY_ID` and `NOTARY_ISSUER_ID`: the contents of an App Store Connect API key (`.p8`) with the Developer role, its key ID, and its issuer ID, from **App Store Connect → Users and Access → Integrations → Team Keys**.
+- `TAP_DEPLOY_KEY`: the private half of an SSH deploy key with write access to the tap.
+
+To release from your Mac instead, set `NOTARY_KEY_PATH`, `NOTARY_KEY_ID` and `NOTARY_ISSUER_ID` and run `./scripts/release-app.sh`.
 
 ## Connect GitHub
 
