@@ -270,7 +270,6 @@ private struct SidebarRow: View {
   let isPinned: Bool
   let shortcut: Int?
   let isSelected: Bool
-  @State private var isHovering = false
 
   var body: some View {
     HStack(spacing: 10) {
@@ -292,12 +291,8 @@ private struct SidebarRow: View {
     .foregroundStyle(isSelected ? Palette.panel : Palette.ink)
     .fontWeight(isSelected ? .semibold : .regular)
     .padding(.horizontal, 10).frame(height: 30)
-    .background(
-      isSelected ? Palette.ink : isHovering ? Palette.ink.opacity(0.06) : .clear,
-      in: RoundedRectangle(cornerRadius: 3)
-    )
+    .background(isSelected ? Palette.ink : .clear, in: RoundedRectangle(cornerRadius: 3))
     .contentShape(Rectangle())
-    .onHover { isHovering = $0 }
     .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 }
@@ -306,52 +301,43 @@ private struct SidebarFooter: View {
   @Environment(AppModel.self) private var model
   let isSelected: Bool
   let select: () -> Void
-  @State private var isHovering = false
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Rule()
-      Button(action: select) {
-        VStack(alignment: .leading, spacing: 4) {
-          HStack(spacing: 8) {
-            Lamp(isOn: model.errors.isEmpty && model.lastUpdated != nil)
-            Text(
-              model.connections.count == 1
-                ? model.connections[0].label : "\(model.connections.count) accounts"
-            )
-            .fontWeight(.medium).lineLimit(1)
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
-              .foregroundStyle(Palette.secondary)
-          }
-          Group {
-            if !model.errors.isEmpty {
-              Text("Needs attention")
-            } else if let date = model.lastUpdated {
-              Text(
-                "Updated \(Text(.currentDate, format: .reference(to: date, allowedFields: [.minute, .hour, .day])))"
-              )
-            } else {
-              Text("Updating…")
-            }
-          }
-          .font(.system(size: 11)).foregroundStyle(Palette.secondary).lineLimit(1)
-          .padding(.leading, 15)
+    Button(action: select) {
+      VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 8) {
+          Lamp(isOn: model.errors.isEmpty && model.lastUpdated != nil)
+          Text(
+            model.connections.count == 1
+              ? model.connections[0].label : "\(model.connections.count) accounts"
+          )
+          .fontWeight(.medium).lineLimit(1)
+          Spacer(minLength: 0)
+          Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(Palette.secondary)
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(
-          Palette.ink.opacity(isSelected ? 0.1 : isHovering ? 0.06 : 0),
-          in: RoundedRectangle(cornerRadius: 3)
-        )
-        .contentShape(Rectangle())
+        Group {
+          if !model.errors.isEmpty {
+            Text("Needs attention")
+          } else if let date = model.lastUpdated {
+            Text(
+              "Updated \(Text(.currentDate, format: .reference(to: date, allowedFields: [.minute, .hour, .day])))"
+            )
+          } else {
+            Text("Updating…")
+          }
+        }
+        .font(.system(size: 11)).foregroundStyle(Palette.secondary).lineLimit(1)
+        .padding(.leading, 15)
       }
-      .buttonStyle(.plain)
-      .onHover { isHovering = $0 }
-      .padding(.horizontal, 10).padding(.vertical, 6)
-      .help("Targets & Accounts")
-      .accessibilityLabel("Targets & Accounts")
-      .accessibilityAddTraits(isSelected ? .isSelected : [])
+      .padding(.horizontal, 20).padding(.vertical, 14)
+      .background(Palette.ink.opacity(isSelected ? 0.1 : 0))
+      .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
+    .help("Targets & Accounts")
+    .accessibilityLabel("Targets & Accounts")
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
     .background(Palette.sidebar)
   }
 }
