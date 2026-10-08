@@ -117,6 +117,7 @@ extension SavedState {
 @MainActor
 @Observable
 final class AppModel {
+  var destination: Destination = .activity(.all)
   private(set) var connections: [AccountConnection] = []
   private(set) var workspaceSettings = Workspaces()
   private(set) var organizationPreferences = OrganizationPreferences()

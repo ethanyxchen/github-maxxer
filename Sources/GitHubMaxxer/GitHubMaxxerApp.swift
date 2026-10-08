@@ -23,8 +23,7 @@ struct GitHubMaxxerApp: App {
     .commands {
       CommandGroup(replacing: .newItem) {}
       CommandGroup(replacing: .appSettings) {
-        SettingsLink().keyboardShortcut(",", modifiers: .command)
-          .disabled(model.connections.isEmpty)
+        SettingsButton(model: model).keyboardShortcut(",", modifiers: .command)
       }
       CommandGroup(replacing: .sidebar) {
         Button("Toggle Sidebar") {
@@ -57,11 +56,6 @@ struct GitHubMaxxerApp: App {
           destination: URL(string: "https://github.com/ethanyxchen/github-maxxer")!)
       }
     }
-    Settings {
-      SettingsWindow().environment(model)
-        .preferredColorScheme(previewColorScheme)
-    }
-    .commandsRemoved()
     MenuBarExtra {
       MenuBarView().environment(model)
     } label: {
@@ -91,28 +85,30 @@ private struct MenuBarLabel: View {
   }
 }
 
-private struct SettingsWindow: View {
-  @Environment(AppModel.self) private var model
-  @Environment(\.dismiss) private var dismiss
+private struct SettingsButton: View {
+  let model: AppModel
+  @Environment(\.openWindow) private var openWindow
 
   var body: some View {
-    SettingsView()
-      .frame(width: 580, height: 580)
-      .onChange(of: model.connections.isEmpty, initial: true) { _, isEmpty in
-        if isEmpty { dismiss() }
-      }
+    Button("Settings…") {
+      model.destination = .settings
+      openWindow(id: "main")
+      NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+    .disabled(model.isWelcoming)
   }
 }
 
 private struct MenuBarView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.openWindow) private var openWindow
-  @Environment(\.openSettings) private var openSettings
 
   var body: some View {
-    ForEach(GoalPeriod.allCases) { period in
-      let progress = model.progress(for: period)
-      Text("\(period.title): \(progress.count) / \(progress.target) PRs")
+    Section(GoalPeriod.day.title) {
+      ForEach(model.workspaces, id: \.self) { workspace in
+        let progress = model.progress(for: .day, filter: workspace)
+        Text("\(model.title(for: workspace)): \(progress.count) / \(progress.target) PRs")
+      }
     }
     Divider()
     Button("Open Hammertime") {
@@ -122,12 +118,7 @@ private struct MenuBarView: View {
     Button("Refresh") { Task { await model.refresh() } }
       .disabled(
         model.isRefreshing || model.isConnecting || model.connections.isEmpty || model.isPreview)
-    Button("Settings…") {
-      openSettings()
-      NSApplication.shared.activate(ignoringOtherApps: true)
-    }
-    .keyboardShortcut(",", modifiers: .command)
-    .disabled(model.connections.isEmpty)
+    SettingsButton(model: model)
     Divider()
     Button("Quit Hammertime") { NSApplication.shared.terminate(nil) }
   }

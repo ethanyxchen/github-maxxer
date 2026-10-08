@@ -56,7 +56,6 @@ struct RootView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.appearsActive) private var appearsActive
-  @State private var selection: Destination = .activity(.all)
   @State private var connectionDraft: ConnectionDraft?
   @State private var renaming: String?
   @State private var newName = ""
@@ -94,8 +93,10 @@ struct RootView: View {
       Text("The new name only appears in Hammertime.")
     }
     .onChange(of: model.sidebarOrganizations) { _, organizations in
-      if case .activity(.organization(let owner)) = selection, !organizations.contains(owner) {
-        selection = .activity(.all)
+      if case .activity(.organization(let owner)) = model.destination,
+        !organizations.contains(owner)
+      {
+        model.destination = .activity(.all)
       }
     }
     .onChange(of: appearsActive, initial: true) { _, active in model.setFocused(active) }
@@ -105,7 +106,7 @@ struct RootView: View {
 
   private var navigation: some View {
     NavigationSplitView {
-      List(selection: $selection) {
+      List(selection: Bindable(model).destination) {
         section("Activity") {
           row(.activity(.all))
           row(.activity(.personal)).contextMenu { colourMenu(.personal) }
@@ -122,7 +123,7 @@ struct RootView: View {
       .background(SidebarResizeBehavior())
       .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
       .safeAreaInset(edge: .bottom, spacing: 0) {
-        SidebarFooter(isSelected: selection == .settings) { selection = .settings }
+        SidebarFooter(isSelected: model.destination == .settings) { model.destination = .settings }
       }
     } detail: {
       VStack(spacing: 0) {
@@ -140,7 +141,7 @@ struct RootView: View {
         }
         content.frame(maxWidth: .infinity, maxHeight: .infinity)
       }
-      .navigationTitle(title(for: selection))
+      .navigationTitle(title(for: model.destination))
       .toolbar(removing: .title)
       .toolbar {
         ToolbarSpacer(.flexible)
@@ -161,7 +162,7 @@ struct RootView: View {
       }
     }
     .navigationSplitViewStyle(.balanced)
-    .focusedSceneValue(\.destination, $selection)
+    .focusedSceneValue(\.destination, Bindable(model).destination)
     .onModifierKeysChanged(mask: .command) { _, keys in showsShortcuts = keys.contains(.command) }
   }
 
@@ -178,7 +179,7 @@ struct RootView: View {
       symbol: symbol(for: destination), title: title(for: destination),
       tint: tint(for: destination),
       isPinned: isPinned(destination), shortcut: shortcut(for: destination),
-      isSelected: selection == destination
+      isSelected: model.destination == destination
     )
     .tag(destination)
     .listRowInsets(EdgeInsets())
@@ -253,17 +254,17 @@ struct RootView: View {
 
   @ViewBuilder
   private var content: some View {
-    switch selection {
+    switch model.destination {
     case .activity(let filter):
-      ActivityView(filter: filter, title: title(for: selection)).id(filter)
+      ActivityView(filter: filter, title: title(for: model.destination)).id(filter)
     case .repositories:
       VStack(spacing: 0) {
-        PageTitle(title(for: selection)).padding([.horizontal, .top], 20)
+        PageTitle(title(for: model.destination)).padding([.horizontal, .top], 20)
         RepositoriesView()
       }
     case .settings:
       VStack(spacing: 0) {
-        PageTitle(title(for: selection)).padding([.horizontal, .top], 20)
+        PageTitle(title(for: model.destination)).padding([.horizontal, .top], 20)
         SettingsView { existing in connectionDraft = ConnectionDraft(existing: existing) }
       }
     }
