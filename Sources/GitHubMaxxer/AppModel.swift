@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import GitHubMaxxerCore
 import Observation
+import os
 
 struct AccountConnection: Codable, Identifiable {
   let id: UUID
@@ -409,9 +410,11 @@ final class AppModel {
     guard !arrived.isEmpty else { return }
     guard isFocused else {
       held = Landing(arrived.union(held?.pullRequests ?? []), joining: held, since: started)
+      Logger.merges.log("Holding \(arrived.count) merges for the banner")
       return
     }
     let landing = Landing(arrived, joining: landing, since: started)
+    Logger.merges.log("Slamming \(arrived.count) merges in the window")
     self.landing = landing
     Task {
       try? await Task.sleep(for: .seconds(max(0, landing.reveal.timeIntervalSinceNow)))
@@ -421,11 +424,13 @@ final class AppModel {
 
   func setFocused(_ focused: Bool) {
     isFocused = focused
+    Logger.merges.log("Window focused: \(focused)")
     if focused { releaseBanner() }
   }
 
   func releaseBanner() {
     guard let held else { return }
+    Logger.merges.log("Releasing banner")
     let date = Date.now
     self.held = nil
     landing = Landing(pullRequests: held.pullRequests, date: date, reveal: date)

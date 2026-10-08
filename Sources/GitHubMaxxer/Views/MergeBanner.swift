@@ -1,6 +1,7 @@
 import AppKit
 import GitHubMaxxerCore
 import SwiftUI
+import os
 
 @MainActor
 final class MergeBanner {
@@ -50,13 +51,20 @@ final class MergeBanner {
       shown = nil
       Task {
         try? await Task.sleep(for: .seconds(Self.exit))
-        if shown == nil { panel.orderOut(nil) }
+        if shown == nil, panel.isVisible {
+          panel.orderOut(nil)
+          Logger.merges.log("Hid banner")
+        }
       }
       return
     }
     let pointer = NSEvent.mouseLocation
     let pointed = NSScreen.screens.first { $0.frame.contains(pointer) }
-    guard banner.date != shown, let screen = pointed ?? NSScreen.main else { return }
+    guard banner.date != shown else { return }
+    guard let screen = pointed ?? NSScreen.main else {
+      Logger.merges.error("No screen for the banner")
+      return
+    }
     shown = banner.date
     let visible = screen.visibleFrame
     let center = CGPoint(
@@ -67,8 +75,14 @@ final class MergeBanner {
         x: center.x - Self.canvas.width / 2,
         y: center.y - Self.canvas.height / 2 + Self.stage.height * (Slam.impactHeight - 0.5)))
     panel.orderFrontRegardless()
+    Logger.merges.log(
+      "Showed banner on \(screen.localizedName, privacy: .public) at \(String(describing: self.panel.frame), privacy: .public)"
+    )
     Task {
-      try? await Task.sleep(for: .seconds(Self.lifetime))
+      try? await Task.sleep(for: .seconds(Slam.impact))
+      Logger.merges.log(
+        "Banner on screen at impact: \(self.panel.occlusionState.contains(.visible))")
+      try? await Task.sleep(for: .seconds(Self.lifetime - Slam.impact))
       if shown == banner.date { model.releaseBanner() }
     }
   }
