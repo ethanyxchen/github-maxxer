@@ -345,10 +345,9 @@ private struct WelcomeView: View {
 
   var body: some View {
     VStack(spacing: 22) {
-      Image(nsImage: .mark)
-        .renderingMode(.template).resizable()
-        .frame(width: 46, height: 46)
-        .foregroundStyle(Palette.reached)
+      Image(nsImage: Bundle.module.image(forResource: "Hammer")!)
+        .resizable()
+        .frame(width: 96, height: 96)
       VStack(spacing: 9) {
         Text("Keep track of what you merge")
           .font(.system(size: 26, weight: .semibold))

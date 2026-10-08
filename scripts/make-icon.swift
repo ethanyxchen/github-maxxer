@@ -243,7 +243,17 @@ func mark(_ hammer: Hammer, points: CGFloat) -> NSBitmapImageRep {
   }
 }
 
-save(appIcon(Hammer(yaw: 1.4, textured: true)), to: iconDestination)
+func portrait(_ hammer: Hammer) -> NSBitmapImageRep {
+  canvas(256) {
+    withShadow(alpha: 0.3, offset: NSSize(width: 4, height: -8), blur: 10) {
+      hammer.draw(face: NSPoint(x: 128, y: 36), length: 700)
+    }
+  }
+}
+
+let textured = Hammer(yaw: 1.4, textured: true)
+save(appIcon(textured), to: iconDestination)
+save(portrait(textured), to: resources.appendingPathComponent("Hammer.png"))
 save(
   mark(Hammer(yaw: 1.57, textured: false), points: 8),
   to: resources.appendingPathComponent("Mark.png"))
