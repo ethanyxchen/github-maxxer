@@ -110,7 +110,7 @@ final class SledgehammerRig {
     key.simdPosition = [0, 0, Self.cameraDistance]
     key.simdLook(at: [-3, -5, glass - 4])
     scene.rootNode.addChildNode(key)
-    scene.lightingEnvironment.contents = Bundle.module.url(
+    scene.lightingEnvironment.contents = Bundle.main.url(
       forResource: "Studio", withExtension: "hdr")
     scene.lightingEnvironment.intensity = 1.2
   }
@@ -135,7 +135,7 @@ final class SledgehammerRig {
 
   private static func scanned() -> SCNNode {
     let model = SCNNode()
-    if let url = Bundle.module.url(forResource: "Sledgehammer", withExtension: "obj"),
+    if let url = Bundle.main.url(forResource: "Sledgehammer", withExtension: "obj"),
       let scene = try? SCNScene(url: url)
     {
       for child in scene.rootNode.childNodes { model.addChildNode(child) }
@@ -143,7 +143,7 @@ final class SledgehammerRig {
     let material = SCNMaterial()
     material.lightingModel = .physicallyBased
     let texture = { (name: String) in
-      Bundle.module.url(forResource: "Sledgehammer\(name)", withExtension: nil)
+      Bundle.main.url(forResource: "Sledgehammer\(name)", withExtension: nil)
     }
     material.diffuse.contents = texture("Color.jpg")
     material.normal.contents = texture("Normal.png")

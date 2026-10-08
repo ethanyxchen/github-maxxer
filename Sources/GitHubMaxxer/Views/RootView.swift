@@ -347,7 +347,7 @@ private struct WelcomeView: View {
 
   var body: some View {
     VStack(spacing: 22) {
-      Image(nsImage: Bundle.module.image(forResource: "Hammer")!)
+      Image(nsImage: Bundle.main.image(forResource: "Hammer")!)
         .resizable()
         .frame(width: 96, height: 96)
       VStack(spacing: 9) {
