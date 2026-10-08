@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 case "${1:-}" in
-  "") launch=(open build/Hammertime.app) ;;
-  --banner) launch=(open -g -j build/Hammertime.app --args --no-activate) ;;
+  "") reopen=(open build/Hammertime.app) ;;
+  --banner) reopen=(true) ;;
   *)
     printf 'Usage: %s [--banner]\n' "$0" >&2
     exit 1
@@ -36,4 +36,5 @@ with open(path + '.replay', 'w') as file:
 os.chmod(path + '.replay', 0o600)
 os.replace(path + '.replay', path)
 PY
-"${launch[@]}"
+open -g -j build/Hammertime.app --args --no-activate
+"${reopen[@]}"

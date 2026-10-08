@@ -19,6 +19,7 @@ struct GitHubMaxxerApp: App {
         .preferredColorScheme(previewColorScheme)
     }
     .defaultSize(width: 1120, height: 800)
+    .defaultLaunchBehavior(model.connections.isEmpty ? .presented : .suppressed)
     .commands {
       CommandGroup(replacing: .newItem) {}
       CommandGroup(replacing: .appSettings) {
@@ -64,13 +65,28 @@ struct GitHubMaxxerApp: App {
     MenuBarExtra {
       MenuBarView().environment(model)
     } label: {
-      let today = model.progress(for: .day)
+      MenuBarLabel().environment(model)
+    }
+  }
+}
+
+private struct MenuBarLabel: View {
+  @Environment(AppModel.self) private var model
+  @Environment(\.openWindow) private var openWindow
+
+  var body: some View {
+    let today = model.progress(for: .day)
+    Group {
       if model.isReached(.day) {
         Image(systemName: "checkmark.circle.fill")
       } else {
         Image(nsImage: .mark)
       }
       Text("\(today.count)/\(today.target)")
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .reopenHammertime)) { _ in
+      openWindow(id: "main")
+      NSApplication.shared.activate(ignoringOtherApps: true)
     }
   }
 }
@@ -91,6 +107,7 @@ private struct SettingsWindow: View {
 private struct MenuBarView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.openWindow) private var openWindow
+  @Environment(\.openSettings) private var openSettings
 
   var body: some View {
     ForEach(GoalPeriod.allCases) { period in
@@ -105,7 +122,12 @@ private struct MenuBarView: View {
     Button("Refresh") { Task { await model.refresh() } }
       .disabled(
         model.isRefreshing || model.isConnecting || model.connections.isEmpty || model.isPreview)
-    SettingsLink().disabled(model.connections.isEmpty)
+    Button("Settings…") {
+      openSettings()
+      NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+    .keyboardShortcut(",", modifiers: .command)
+    .disabled(model.connections.isEmpty)
     Divider()
     Button("Quit Hammertime") { NSApplication.shared.terminate(nil) }
   }
@@ -119,8 +141,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var banner: MergeBanner?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    NSApplication.shared.setActivationPolicy(.regular)
     banner = MergeBanner(model: model)
+    model.startRefreshing()
     if ProcessInfo.processInfo.arguments.contains("--verify-github") {
       Task {
         do {
@@ -140,12 +162,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           exit(1)
         }
       }
-    } else if !ProcessInfo.processInfo.arguments.contains("--no-activate") {
+    } else if model.connections.isEmpty,
+      !ProcessInfo.processInfo.arguments.contains("--no-activate")
+    {
       NSApplication.shared.activate(ignoringOtherApps: true)
     }
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+    NotificationCenter.default.post(name: .reopenHammertime, object: nil)
+    return false
+  }
+}
+
+extension Notification.Name {
+  fileprivate static let reopenHammertime = Notification.Name("reopenHammertime")
 }
 
 extension NSImage {

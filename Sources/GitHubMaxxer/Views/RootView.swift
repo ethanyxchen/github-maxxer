@@ -98,7 +98,6 @@ struct RootView: View {
         selection = .activity(.all)
       }
     }
-    .onAppear { model.startRefreshing() }
     .onChange(of: appearsActive, initial: true) { _, active in model.setFocused(active) }
     .onDisappear { model.setFocused(false) }
     .frame(minWidth: 920, minHeight: 680)
