@@ -5,6 +5,7 @@ import SwiftUI
 @main
 struct GitHubMaxxerApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+  @FocusedBinding(\.destination) private var destination
   @FocusedValue(\.searchFocus) private var searchFocus
   private var model: AppModel { delegate.model }
 
@@ -28,23 +29,19 @@ struct GitHubMaxxerApp: App {
           NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
         }
         .keyboardShortcut("s", modifiers: .command)
-        .disabled(model.isWelcoming)
+        .disabled(destination == nil)
         Divider()
-        Button("Previous Page") {
-          model.destination = model.destination.step(-1, through: model.activities)
-        }
-        .keyboardShortcut("[", modifiers: [.command, .shift])
-        .disabled(model.isWelcoming)
-        Button("Next Page") {
-          model.destination = model.destination.step(1, through: model.activities)
-        }
-        .keyboardShortcut("]", modifiers: [.command, .shift])
-        .disabled(model.isWelcoming)
+        Button("Previous Page") { destination = destination?.step(-1, through: model.activities) }
+          .keyboardShortcut("[", modifiers: [.command, .shift])
+          .disabled(destination == nil)
+        Button("Next Page") { destination = destination?.step(1, through: model.activities) }
+          .keyboardShortcut("]", modifiers: [.command, .shift])
+          .disabled(destination == nil)
         Divider()
         ForEach(Array(model.activities.prefix(9).enumerated()), id: \.element) { index, filter in
-          Button(model.title(for: filter)) { model.destination = .activity(filter) }
+          Button(model.title(for: filter)) { destination = .activity(filter) }
             .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
-            .disabled(model.isWelcoming)
+            .disabled(destination == nil)
         }
       }
       CommandGroup(after: .textEditing) {

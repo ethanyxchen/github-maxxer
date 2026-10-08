@@ -31,6 +31,7 @@ enum Destination: Hashable {
 }
 
 extension FocusedValues {
+  @Entry var destination: Binding<Destination>?
   @Entry var searchFocus: FocusState<Bool>.Binding?
 }
 
@@ -162,6 +163,7 @@ struct RootView: View {
       }
     }
     .navigationSplitViewStyle(.balanced)
+    .focusedSceneValue(\.destination, Bindable(model).destination)
     .onModifierKeysChanged(mask: .command) { _, keys in showsShortcuts = keys.contains(.command) }
   }
 
