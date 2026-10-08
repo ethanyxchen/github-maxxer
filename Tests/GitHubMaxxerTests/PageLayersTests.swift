@@ -24,6 +24,24 @@ struct PageLayersTests {
     #expect(backdrop[45] == background)
     #expect(backdrop[48] == background)
   }
+
+  @Test func fillsBackdropWithoutSmearingAntialiasedEdges() throws {
+    let background: UInt32 = 0xFFEF_F2F1
+    let edge: UInt32 = 0xFFE0_F0F0
+    let ink: UInt32 = 0xFF14_1714
+    var pixels = [UInt32](repeating: background, count: 200 * 4)
+    for row in 0..<4 {
+      pixels[row * 200 + 39] = edge
+      for column in 40..<56 { pixels[row * 200 + column] = ink }
+    }
+
+    let layers = try #require(PageLayers(image(pixels, width: 200, height: 4)))
+    let backdrop = try bytes(layers.backdrop)
+
+    #expect(backdrop[39] == background)
+    #expect(backdrop[45] == background)
+    #expect(backdrop[60] == background)
+  }
 }
 
 private func image(_ pixels: [UInt32], width: Int, height: Int) -> CGImage {

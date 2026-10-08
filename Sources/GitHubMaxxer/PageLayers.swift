@@ -29,24 +29,24 @@ struct PageLayers {
     var backdrop = pixels
     for row in 0..<height {
       let span = row * width..<(row + 1) * width
-      var surface = [Bool](repeating: false, count: width)
-      var run = 0
-      for column in 0...width {
-        if column < width, isBackground[Self.bin(pixels[span.lowerBound + column])] { continue }
-        if column - run >= Self.minimumRun {
-          for flat in run..<column { surface[flat] = true }
-        }
-        run = column + 1
+      var surfaces: [Range<Int>] = []
+      var run = span.lowerBound
+      for index in span.lowerBound...span.upperBound {
+        if index < span.upperBound, isBackground[Self.bin(pixels[index])] { continue }
+        if index - run >= Self.minimumRun { surfaces.append(run..<index) }
+        run = index + 1
       }
-      var fill = span.first { surface[$0 - span.lowerBound] }.map { pixels[$0] } ?? 0
-      for index in span {
-        if surface[index - span.lowerBound] {
-          fill = pixels[index]
-          content[index] = 0
-        } else {
-          backdrop[index] = fill
-        }
+      let fills = surfaces.map { pixels[($0.lowerBound + $0.upperBound) / 2] }
+      var gap = span.lowerBound
+      for (surface, fill) in zip(surfaces, fills) {
+        backdrop.replaceSubrange(
+          gap..<surface.upperBound, with: repeatElement(fill, count: surface.upperBound - gap))
+        content.replaceSubrange(surface, with: repeatElement(0, count: surface.count))
+        gap = surface.upperBound
       }
+      let tail = fills.last ?? 0
+      backdrop.replaceSubrange(
+        gap..<span.upperBound, with: repeatElement(tail, count: span.upperBound - gap))
     }
     guard
       let content = Self.image(content, width: width, height: height),
