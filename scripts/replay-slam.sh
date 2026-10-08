@@ -19,7 +19,7 @@ if pgrep -x Hammertime >/dev/null; then
 fi
 python3 - <<'PY'
 import json, os, sys
-path = os.path.expanduser('~/Library/Application Support/GitHub Maxxer/state.json')
+path = os.path.expanduser('~/Library/Application Support/Hammertime/state.json')
 if not os.path.exists(path):
     sys.exit('Connect a GitHub account in Hammertime first.')
 state = json.load(open(path))

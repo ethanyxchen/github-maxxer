@@ -146,7 +146,7 @@ final class AppModel {
     self.stateURL =
       stateURL
       ?? URL.applicationSupportDirectory
-      .appending(path: "GitHub Maxxer", directoryHint: .isDirectory)
+      .appending(path: "Hammertime", directoryHint: .isDirectory)
       .appending(path: "state.json")
     if preview {
       connections = PreviewData.connections(now: now)
