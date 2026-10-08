@@ -1,15 +1,11 @@
-import AppKit
 import GitHubMaxxerCore
 import SwiftUI
 
 struct ConnectionSheet: View {
   @Environment(AppModel.self) private var model
   @Environment(\.dismiss) private var dismiss
-  @Environment(\.openURL) private var openURL
   let existing: AccountConnection?
   @State private var label = ""
-  @State private var includePrivateRepositories = true
-  @State private var phase = SignInPhase.ready
   @State private var error: String?
   @State private var connectionTask: Task<Void, Never>?
 
@@ -27,53 +23,25 @@ struct ConnectionSheet: View {
       }
       Form {
         TextField("Connection name", text: $label, prompt: Text("e.g. Personal or Work"))
-        Toggle("Include private repositories", isOn: $includePrivateRepositories)
       }
-      .disabled(phase.isBusy)
-      Text(
-        includePrivateRepositories
-          ? "GitHub requires a permission that includes repository write access to read private activity. Hammertime only reads your data. Your organization may require approval or SSO."
-          : "Browser sign in will connect your public activity and organization memberships. Private repositories will not be included."
-      )
-      .font(.callout).foregroundStyle(.secondary)
-      .fixedSize(horizontal: false, vertical: true)
-      if case .waiting(let authorization) = phase {
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Enter this code on GitHub").font(.headline)
-          HStack {
-            Text(authorization.userCode)
-              .font(.system(size: 26, weight: .medium, design: .monospaced))
-              .textSelection(.enabled)
-            Spacer()
-            Button("Copy Code", systemImage: "doc.on.doc") {
-              NSPasteboard.general.clearContents()
-              NSPasteboard.general.setString(authorization.userCode, forType: .string)
-            }
-          }
-          HStack {
-            Text("Then approve the connection in your browser.")
-              .font(.callout).foregroundStyle(.secondary)
-            Spacer()
-            Button("Open GitHub") { openURL(authorization.verificationURL) }
-          }
+      .disabled(connectionTask != nil)
+      if GitHubCLI.executable == nil {
+        VStack(alignment: .leading, spacing: 8) {
+          Text("Install GitHub CLI and sign in, then connect.").font(.headline)
+          Text("brew install gh\ngh auth login")
+            .font(.system(.callout, design: .monospaced)).textSelection(.enabled)
         }
-        .padding(16).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
+        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
       } else {
-        Label(
-          "Sign in securely in your browser. Credentials stay in Keychain.", systemImage: "lock"
+        Text(
+          "Connects the account GitHub CLI is signed in to, with its permissions. Run gh auth login to sign in or switch accounts."
         )
-        .font(.caption).foregroundStyle(.secondary)
-        if GitHubCLI.executable != nil {
-          HStack {
-            Text("Already connected with GitHub CLI?")
-              .font(.caption).foregroundStyle(.secondary)
-            Spacer()
-            Button("Use GitHub CLI") { signIn(usingCLI: true) }
-              .disabled(phase.isBusy)
-              .help("Uses the existing GitHub CLI account and permissions.")
-          }
-        }
+        .font(.callout).foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
       }
+      Label("Credentials stay in Keychain.", systemImage: "lock")
+        .font(.caption).foregroundStyle(.secondary)
       if let error {
         Label(error, systemImage: "exclamationmark.circle")
           .foregroundStyle(.red).font(.callout)
@@ -81,9 +49,9 @@ struct ConnectionSheet: View {
       }
       Divider()
       HStack {
-        if phase.isBusy {
+        if connectionTask != nil {
           ProgressView().controlSize(.small)
-          Text(phase.status).font(.caption).foregroundStyle(.secondary)
+          Text("Loading your GitHub activity…").font(.caption).foregroundStyle(.secondary)
         }
         Spacer()
         Button("Cancel") {
@@ -91,69 +59,30 @@ struct ConnectionSheet: View {
           dismiss()
         }
         .keyboardShortcut(.cancelAction)
-        if !phase.isBusy {
-          Button("Sign in with GitHub") { signIn() }
-            .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
-        }
+        Button("Connect") { connect() }
+          .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+          .disabled(connectionTask != nil || GitHubCLI.executable == nil)
       }
     }
     .padding(28).frame(width: 510)
     .onAppear { label = existing?.label ?? "" }
     .onDisappear { connectionTask?.cancel() }
-    .interactiveDismissDisabled(phase.isBusy)
+    .interactiveDismissDisabled(connectionTask != nil)
   }
 
-  private func signIn(usingCLI: Bool = false) {
-    guard !phase.isBusy else { return }
-    phase = .starting
+  private func connect() {
     error = nil
     connectionTask = Task {
       do {
-        let credential: String
-        if usingCLI {
-          credential = try await GitHubCLI.token()
-        } else {
-          let clientID =
-            ProcessInfo.processInfo.environment["GITHUB_OAUTH_CLIENT_ID"]
-            ?? Bundle.main.object(forInfoDictionaryKey: "GitHubOAuthClientID") as? String ?? ""
-          let oauth = GitHubOAuth(clientID: clientID)
-          let authorization = try await oauth.startAuthorization(
-            includePrivateRepositories: includePrivateRepositories)
-          try Task.checkCancellation()
-          phase = .waiting(authorization)
-          openURL(authorization.verificationURL)
-          credential = try await oauth.waitForToken(authorization)
-        }
+        let token = try await GitHubCLI.token()
         try Task.checkCancellation()
-        phase = .loading
-        try await model.connect(token: credential, label: label, replacing: existing?.id)
+        try await model.connect(token: token, label: label, replacing: existing?.id)
         dismiss()
       } catch is CancellationError {
       } catch {
         if !Task.isCancelled { self.error = error.localizedDescription }
       }
-      phase = .ready
       connectionTask = nil
-    }
-  }
-}
-
-private enum SignInPhase {
-  case ready, starting
-  case waiting(DeviceAuthorization)
-  case loading
-
-  var isBusy: Bool {
-    if case .ready = self { return false }
-    return true
-  }
-
-  var status: String {
-    switch self {
-    case .ready: ""
-    case .starting: "Starting sign in…"
-    case .waiting: "Waiting for GitHub…"
-    case .loading: "Loading your GitHub activity…"
     }
   }
 }
