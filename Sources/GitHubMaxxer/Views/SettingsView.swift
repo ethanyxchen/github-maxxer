@@ -3,8 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
   @Environment(AppModel.self) private var model
-  var connect: ((AccountConnection?) -> Void)?
-  @State private var draft: ConnectionDraft?
+  let connect: (AccountConnection?) -> Void
   @State private var removing: AccountConnection?
   @State private var removalError: String?
   @AppStorage(Soundtrack.mutedKey) private var isSlamSoundMuted = false
@@ -41,7 +40,7 @@ struct SettingsView: View {
                 }
                 Spacer()
                 Menu {
-                  Button("Reconnect…") { showConnection(connection) }
+                  Button("Reconnect…") { connect(connection) }
                   Divider()
                   Button("Disconnect…", role: .destructive) { removing = connection }
                 } label: {
@@ -57,7 +56,7 @@ struct SettingsView: View {
             }
           }
         } accessory: {
-          Button("Add GitHub Connection…", systemImage: "plus") { showConnection(nil) }
+          Button("Add GitHub Connection…", systemImage: "plus") { connect(nil) }
             .labelStyle(.iconOnly).buttonStyle(.accessoryBarAction)
             .help("Add GitHub Connection…")
             .disabled(model.isPreview)
@@ -81,7 +80,6 @@ struct SettingsView: View {
       }
       .padding(20)
     }
-    .sheet(item: $draft) { ConnectionSheet(existing: $0.existing).environment(model) }
     .confirmationDialog(
       "Disconnect \(removing?.label ?? "GitHub")?",
       isPresented: Binding(
@@ -107,10 +105,6 @@ struct SettingsView: View {
     } message: {
       Text(removalError ?? "")
     }
-  }
-
-  private func showConnection(_ existing: AccountConnection?) {
-    if let connect { connect(existing) } else { draft = ConnectionDraft(existing: existing) }
   }
 }
 
