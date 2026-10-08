@@ -65,7 +65,9 @@ struct RootView: View {
   var body: some View {
     Group {
       if model.connections.isEmpty {
-        WelcomeView { connectionDraft = ConnectionDraft() }.toolbar(removing: .title)
+        WelcomeView { connectionDraft = ConnectionDraft() }
+          .toolbar(removing: .title)
+          .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
       } else {
         navigation
       }

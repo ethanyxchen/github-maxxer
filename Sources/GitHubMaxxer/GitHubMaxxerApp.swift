@@ -21,6 +21,10 @@ struct GitHubMaxxerApp: App {
     .defaultSize(width: 1120, height: 800)
     .commands {
       CommandGroup(replacing: .newItem) {}
+      CommandGroup(replacing: .appSettings) {
+        SettingsLink().keyboardShortcut(",", modifiers: .command)
+          .disabled(model.connections.isEmpty)
+      }
       CommandGroup(replacing: .sidebar) {
         Button("Toggle Sidebar") {
           NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
@@ -53,10 +57,10 @@ struct GitHubMaxxerApp: App {
       }
     }
     Settings {
-      SettingsView().environment(model)
+      SettingsWindow().environment(model)
         .preferredColorScheme(previewColorScheme)
-        .frame(width: 580, height: 580)
     }
+    .commandsRemoved()
     MenuBarExtra {
       MenuBarView().environment(model)
     } label: {
@@ -68,6 +72,19 @@ struct GitHubMaxxerApp: App {
       }
       Text("\(today.count)/\(today.target)")
     }
+  }
+}
+
+private struct SettingsWindow: View {
+  @Environment(AppModel.self) private var model
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    SettingsView()
+      .frame(width: 580, height: 580)
+      .onChange(of: model.connections.isEmpty, initial: true) { _, isEmpty in
+        if isEmpty { dismiss() }
+      }
   }
 }
 
@@ -88,7 +105,7 @@ private struct MenuBarView: View {
     Button("Refresh") { Task { await model.refresh() } }
       .disabled(
         model.isRefreshing || model.isConnecting || model.connections.isEmpty || model.isPreview)
-    SettingsLink()
+    SettingsLink().disabled(model.connections.isEmpty)
     Divider()
     Button("Quit Hammertime") { NSApplication.shared.terminate(nil) }
   }
