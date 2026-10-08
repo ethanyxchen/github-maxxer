@@ -76,7 +76,7 @@ jobs:
 
             uninstall quit: "$bundle_id"
 
-            zap trash: "~/Library/Application Support/GitHub Maxxer"
+            zap trash: "~/Library/Application Support/Hammertime"
           end
           CASK
           git config user.name "github-actions[bot]"

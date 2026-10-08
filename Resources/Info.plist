@@ -7,7 +7,6 @@
     <key>CFBundleExecutable</key><string>Hammertime</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleIdentifier</key><string>com.ethanyxchen.github-maxxer</string>
-    <key>GitHubOAuthClientID</key><string>Ov23liTRY22529j3US0l</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>Hammertime</string>
     <key>CFBundlePackageType</key><string>APPL</string>
