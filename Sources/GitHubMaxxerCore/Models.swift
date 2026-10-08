@@ -114,6 +114,11 @@ public struct RepositoryScope: Codable, Sendable, Equatable {
     self.repositories = repositories
   }
 
+  public static func active(in pulls: [MergedPullRequest], login: String) -> RepositoryScope {
+    RepositoryScope(
+      allRepositories: false, owners: Set(pulls.map(\.repository.owner)).union([login]))
+  }
+
   public func includes(_ repository: Repository) -> Bool {
     allRepositories
       || includesOwner(repository.owner)
@@ -122,5 +127,21 @@ public struct RepositoryScope: Codable, Sendable, Equatable {
 
   public func includesOwner(_ owner: String) -> Bool {
     owners.contains { $0.caseInsensitiveCompare(owner) == .orderedSame }
+  }
+
+  public func counting(_ owner: String, _ counted: Bool, among available: [Repository])
+    -> RepositoryScope
+  {
+    var scope = self
+    if allRepositories {
+      guard !counted else { return self }
+      scope.allRepositories = false
+      scope.owners = Set(available.map(\.owner))
+    }
+    scope.owners = scope.owners.filter { $0.caseInsensitiveCompare(owner) != .orderedSame }
+    if counted { scope.owners.insert(owner) }
+    scope.repositories.subtract(
+      available.filter { $0.owner.caseInsensitiveCompare(owner) == .orderedSame }.map(\.id))
+    return scope
   }
 }

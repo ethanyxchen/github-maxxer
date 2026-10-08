@@ -16,7 +16,6 @@ struct AccountConnection: Codable, Identifiable {
 
 struct OrganizationPreferences: Codable {
   var pinned: [String] = []
-  var hidden: Set<String> = []
   var names: [String: String] = [:]
 
   static func key(_ organization: String) -> String { organization.lowercased() }
@@ -27,7 +26,6 @@ struct OrganizationPreferences: Codable {
       pinned: pinned.map(Self.key).filter {
         organizations.contains($0) && seen.insert($0).inserted
       },
-      hidden: Set(hidden.map(Self.key)).intersection(organizations),
       names: Dictionary(names.map { (Self.key($0.key), $0.value) }) { first, _ in first }
         .filter { organizations.contains($0.key) })
   }
@@ -191,26 +189,30 @@ final class AppModel {
       from: connections.map {
         ScopedActivity(pullRequests: $0.snapshot.pullRequests, scope: $0.scope)
       }
-    ).filter { pull in
-      interval.contains(pull.mergedAt)
-        && !(pull.repository.ownerKind == .organization && isHidden(pull.repository.owner))
-    }
+    ).filter { interval.contains($0.mergedAt) }
   }
 
   var organizations: [String] {
     let repositories = connections.flatMap { account in
-      account.snapshot.pullRequests.map(\.repository).filter(account.scope.includes)
+      account.snapshot.visibleRepositories.filter(account.scope.includes)
     }
-    let owners = repositories.filter { $0.ownerKind == .organization }.map(\.owner)
+    let owners = repositories.map(\.owner).filter { owner in
+      !personalLogins.contains { $0.caseInsensitiveCompare(owner) == .orderedSame }
+    }
     return Dictionary(owners.map { (OrganizationPreferences.key($0), $0) }) { first, _ in first }
       .values.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
   }
 
+  func isPerson(_ owner: String) -> Bool {
+    connections.flatMap(\.snapshot.visibleRepositories).contains {
+      $0.owner.caseInsensitiveCompare(owner) == .orderedSame && $0.ownerKind != .organization
+    }
+  }
+
   var sidebarOrganizations: [String] {
-    let visible = organizations.filter { !isHidden($0) }
-    return organizationPreferences.pinned.compactMap { key in
-      visible.first { OrganizationPreferences.key($0) == key }
-    } + visible.filter { !isPinned($0) }
+    organizationPreferences.pinned.compactMap { key in
+      organizations.first { OrganizationPreferences.key($0) == key }
+    } + organizations.filter { !isPinned($0) }
   }
 
   var workspaces: [ActivityFilter] {
@@ -253,10 +255,6 @@ final class AppModel {
     organizationPreferences.pinned.contains(OrganizationPreferences.key(organization))
   }
 
-  func isHidden(_ organization: String) -> Bool {
-    organizationPreferences.hidden.contains(OrganizationPreferences.key(organization))
-  }
-
   func setPinned(_ pinned: Bool, organization: String) {
     let key = OrganizationPreferences.key(organization)
     organizationPreferences.pinned.removeAll { $0 == key }
@@ -264,14 +262,14 @@ final class AppModel {
     persist()
   }
 
-  func setHidden(_ hidden: Bool, organization: String) {
-    let key = OrganizationPreferences.key(organization)
-    if hidden {
-      organizationPreferences.hidden.insert(key)
-    } else {
-      organizationPreferences.hidden.remove(key)
-    }
-    persist()
+  func setCounted(_ counted: Bool, owner: String, for id: UUID) {
+    guard let account = connections.first(where: { $0.id == id }) else { return }
+    setScope(
+      account.scope.counting(owner, counted, among: account.snapshot.visibleRepositories), for: id)
+  }
+
+  func stopCounting(_ owner: String) {
+    for account in connections { setCounted(false, owner: owner, for: account.id) }
   }
 
   func renameOrganization(_ organization: String, to name: String) {
@@ -357,7 +355,8 @@ final class AppModel {
       connections.append(
         AccountConnection(
           id: connectionID, label: profile.login,
-          profile: profile, scope: RepositoryScope(), snapshot: snapshot
+          profile: profile,
+          scope: .active(in: snapshot.pullRequests, login: profile.login), snapshot: snapshot
         ))
     }
     connectionErrors[connectionID] = nil
