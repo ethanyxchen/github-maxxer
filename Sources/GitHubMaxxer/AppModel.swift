@@ -374,18 +374,20 @@ final class AppModel {
     isRefreshing = true
     defer { isRefreshing = false }
     let started = Date.now
-    let interval = DateInterval(
-      start: Activity.historyInterval(endingAt: started).start, end: started)
     let results = await fetch { client, account in
-      try await client.mergedPullRequests(
-        login: account.profile.login, from: interval.start, through: interval.end)
+      let interval = account.snapshot.refreshInterval(endingAt: started)
+      return (
+        interval,
+        try await client.mergedPullRequests(
+          login: account.profile.login, from: interval.start, through: interval.end)
+      )
     }
     for (id, result) in results {
       guard let index = connections.firstIndex(where: { $0.id == id }),
         connections[index].snapshot.fetchedAt <= started
       else { continue }
       switch result {
-      case .success(let pulls):
+      case .success(let (interval, pulls)):
         let known = Set(merged.map(\.id))
         connections[index].snapshot.record(pulls, mergedIn: interval)
         land(Set(merged.map(\.id)).subtracting(known), since: started)

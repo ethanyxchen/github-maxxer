@@ -33,6 +33,35 @@ struct ActivityTests {
     )
   }
 
+  @Test func refreshResumesShortlyBeforeTheLastFetch() {
+    let now = date("2026-09-30T12:00:00Z")
+    let recent = GitHubSnapshot(
+      repositories: [], pullRequests: [], fetchedAt: date("2026-09-30T11:59:00Z"))
+    #expect(recent.refreshInterval(endingAt: now).start == date("2026-09-30T10:59:00Z"))
+    let stale = GitHubSnapshot(
+      repositories: [], pullRequests: [], fetchedAt: date("2026-01-01T00:00:00Z"))
+    #expect(
+      stale.refreshInterval(endingAt: now).start == Activity.historyInterval(endingAt: now).start)
+  }
+
+  @Test func recordReplacesTheRefreshedWindowAndKeepsEarlierHistory() {
+    var snapshot = GitHubSnapshot(
+      repositories: [],
+      pullRequests: [
+        pull("expired", "2026-01-01T00:00:00Z"),
+        pull("kept", "2026-09-20T00:00:00Z"),
+        pull("reverted", "2026-09-30T11:30:00Z"),
+      ],
+      fetchedAt: date("2026-09-30T11:59:00Z"))
+    let interval = DateInterval(
+      start: date("2026-09-30T10:59:00Z"), end: date("2026-09-30T12:00:00Z"))
+
+    snapshot.record([pull("fresh", "2026-09-30T11:45:00Z")], mergedIn: interval)
+
+    #expect(snapshot.pullRequests.map(\.id) == ["fresh", "kept"])
+    #expect(snapshot.fetchedAt == interval.end)
+  }
+
   @Test func localMidnightAndFutureMerges() {
     let now = date("2026-09-30T12:00:00Z")
     let pulls = [

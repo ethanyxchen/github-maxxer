@@ -85,6 +85,14 @@ public struct GitHubSnapshot: Codable, Sendable {
       .sorted { $0.nameWithOwner.localizedStandardCompare($1.nameWithOwner) == .orderedAscending }
   }
 
+  public static let refreshOverlap: TimeInterval = 60 * 60
+
+  public func refreshInterval(endingAt now: Date) -> DateInterval {
+    let resumed = fetchedAt.addingTimeInterval(-Self.refreshOverlap)
+    let start = max(resumed, Activity.historyInterval(endingAt: now).start)
+    return DateInterval(start: min(start, now), end: now)
+  }
+
   public mutating func record(_ pulls: [MergedPullRequest], mergedIn interval: DateInterval) {
     let history = Activity.historyInterval(endingAt: interval.end).start
     pullRequests =
