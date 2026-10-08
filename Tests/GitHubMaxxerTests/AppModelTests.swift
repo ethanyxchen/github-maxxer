@@ -37,6 +37,26 @@ struct AppModelTests {
     #expect(reloaded.connections[0].id == connection.id)
   }
 
+  @Test func firstConnectionSlamsTheWelcomeScreen() async throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [SignedInProtocol.self]
+    let model = AppModel(
+      stateURL: directory.appending(path: "state.json"), credentials: TestCredentials(),
+      session: URLSession(configuration: configuration))
+
+    try await model.connect(token: "cli-credential", label: "")
+
+    let landing = try #require(model.landing)
+    #expect(landing.pullRequests.isEmpty)
+    #expect(model.isWelcoming == (landing.slam != nil))
+
+    try await model.connect(token: "cli-credential", label: "")
+
+    #expect(model.landing == landing)
+  }
+
   @Test func dailyGoalUpdatesWeeklyAndMonthlyTargets() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
