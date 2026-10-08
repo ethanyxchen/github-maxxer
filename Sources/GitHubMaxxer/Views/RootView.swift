@@ -67,11 +67,11 @@ struct RootView: View {
       if model.isWelcoming {
         WelcomeView { connectionDraft = ConnectionDraft() }
           .toolbar(removing: .title)
-          .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
       } else {
         navigation
       }
     }
+    .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     .overlay { HammerSlam(landing: model.landing).ignoresSafeArea() }
     .sheet(item: $connectionDraft) { draft in
       ConnectionSheet(existing: draft.existing)
