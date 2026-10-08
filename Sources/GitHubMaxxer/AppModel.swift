@@ -203,6 +203,12 @@ final class AppModel {
       .values.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
   }
 
+  func isPerson(_ owner: String) -> Bool {
+    connections.flatMap(\.snapshot.visibleRepositories).contains {
+      $0.owner.caseInsensitiveCompare(owner) == .orderedSame && $0.ownerKind != .organization
+    }
+  }
+
   var sidebarOrganizations: [String] {
     organizationPreferences.pinned.compactMap { key in
       organizations.first { OrganizationPreferences.key($0) == key }

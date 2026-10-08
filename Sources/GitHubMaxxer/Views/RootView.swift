@@ -176,7 +176,8 @@ struct RootView: View {
 
   private func row(_ destination: Destination) -> some View {
     SidebarRow(
-      destination: destination, title: title(for: destination), tint: tint(for: destination),
+      symbol: symbol(for: destination), title: title(for: destination),
+      tint: tint(for: destination),
       isPinned: isPinned(destination), shortcut: shortcut(for: destination),
       isSelected: selection == destination
     )
@@ -188,6 +189,13 @@ struct RootView: View {
   private func title(for destination: Destination) -> String {
     guard case .activity(let filter) = destination else { return destination.title }
     return model.title(for: filter)
+  }
+
+  private func symbol(for destination: Destination) -> String {
+    guard case .activity(.organization(let owner)) = destination, model.isPerson(owner) else {
+      return destination.symbol
+    }
+    return "person.circle"
   }
 
   private func tint(for destination: Destination) -> Color {
@@ -264,7 +272,7 @@ struct RootView: View {
 }
 
 private struct SidebarRow: View {
-  let destination: Destination
+  let symbol: String
   let title: String
   let tint: Color
   let isPinned: Bool
@@ -273,7 +281,7 @@ private struct SidebarRow: View {
 
   var body: some View {
     HStack(spacing: 10) {
-      Image(systemName: destination.symbol)
+      Image(systemName: symbol)
         .frame(width: 18)
         .foregroundStyle(isSelected ? Palette.panel : tint)
       Text(title).lineLimit(1)

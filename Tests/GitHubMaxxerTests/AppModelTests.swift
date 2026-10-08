@@ -232,6 +232,8 @@ struct AppModelTests {
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
     #expect(model.sidebarOrganizations == ["acme", "friend", "quiet"])
+    #expect(model.isPerson("Friend"))
+    #expect(!model.isPerson("acme"))
   }
 
   @Test func organizationPreferencesIgnoreOwnerCase() throws {
