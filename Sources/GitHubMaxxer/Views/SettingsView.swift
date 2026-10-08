@@ -69,8 +69,9 @@ struct SettingsView: View {
           LabeledContent("Sound") {
             Toggle(
               "Sound",
-              isOn: Binding(get: { !isSlamSoundMuted }, set: { isSlamSoundMuted = !$0 }))
-              .labelsHidden().toggleStyle(.switch).controlSize(.small)
+              isOn: Binding(get: { !isSlamSoundMuted }, set: { isSlamSoundMuted = !$0 })
+            )
+            .labelsHidden().toggleStyle(.switch).controlSize(.small)
           }
         }
         SettingsSection("Updates") {
