@@ -126,10 +126,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
           let token = try await GitHubCLI.token()
           let client = GitHubClient(token: token)
+          let now = Date.now
+          async let repositories = client.repositories()
+          async let pulls = client.mergedPullRequests(
+            from: Activity.historyInterval(endingAt: now).start, through: now)
           let profile = try await client.profile()
-          let snapshot = try await client.snapshot(login: profile.login)
           print(
-            "GitHub integration verified for @\(profile.login): \(snapshot.repositories.count) repositories, \(snapshot.pullRequests.count) merged PRs."
+            "GitHub integration verified for @\(profile.login): \(try await repositories.count) repositories, \(try await pulls.count) merged PRs."
           )
           exit(0)
         } catch {
