@@ -33,6 +33,25 @@ struct ActivityTests {
     )
   }
 
+  @Test func stopCountingAnOwnerWhileTrackingEverythingKeepsTheOthers() {
+    let available = ["acme/app", "beta/app", "beta/tools", "me/dotfiles"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false)
+    }
+    let scope = RepositoryScope().counting("BETA", false, among: available)
+    #expect(!scope.allRepositories)
+    #expect(scope.owners == ["acme", "me"])
+    #expect(RepositoryScope().counting("beta", true, among: available) == RepositoryScope())
+    #expect(scope.counting("beta", true, among: available).owners == ["acme", "beta", "me"])
+  }
+
+  @Test func stopCountingAnOwnerDropsItsIndividuallyTrackedRepositories() {
+    let available = ["acme/app", "beta/app"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false)
+    }
+    let scope = RepositoryScope(allRepositories: false, repositories: ["acme/app", "beta/app"])
+    #expect(scope.counting("beta", false, among: available).repositories == ["acme/app"])
+  }
+
   @Test func refreshResumesShortlyBeforeTheLastFetch() {
     let now = date("2026-09-30T12:00:00Z")
     let recent = GitHubSnapshot(

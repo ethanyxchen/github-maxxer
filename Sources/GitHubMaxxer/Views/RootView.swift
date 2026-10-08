@@ -238,9 +238,9 @@ struct RootView: View {
     }
     Divider()
     Button(role: .destructive) {
-      model.setHidden(true, organization: owner)
+      model.stopCounting(owner)
     } label: {
-      Text("Remove from Sidebar").foregroundStyle(.red)
+      Text("Stop Counting").foregroundStyle(.red)
     }
   }
 
