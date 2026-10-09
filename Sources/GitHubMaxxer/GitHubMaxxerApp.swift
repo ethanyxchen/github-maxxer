@@ -19,7 +19,7 @@ struct GitHubMaxxerApp: App {
         .preferredColorScheme(previewColorScheme)
     }
     .defaultSize(width: 1120, height: 800)
-    .defaultLaunchBehavior(model.connections.isEmpty ? .presented : .suppressed)
+    .defaultLaunchBehavior(model.opensWindowAtLaunch ? .presented : .suppressed)
     .commands {
       CommandGroup(replacing: .newItem) {}
       CommandGroup(replacing: .appSettings) {
@@ -153,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           exit(1)
         }
       }
-    } else if model.connections.isEmpty,
+    } else if model.opensWindowAtLaunch,
       !ProcessInfo.processInfo.arguments.contains("--no-activate")
     {
       NSApplication.shared.activate(ignoringOtherApps: true)

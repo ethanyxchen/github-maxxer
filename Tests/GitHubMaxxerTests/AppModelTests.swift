@@ -123,7 +123,12 @@ struct AppModelTests {
       scope: RepositoryScope(
         allRepositories: false, owners: ["acme", "beta", sample.profile.login]),
       snapshot: GitHubSnapshot(
-        repositories: [], pullRequests: repositories.map(mergedPullRequest), fetchedAt: .now))
+        repositories: [
+          Repository(
+            id: "\(sample.profile.login)/app", nameWithOwner: "\(sample.profile.login)/app",
+            isPrivate: false)
+        ],
+        pullRequests: repositories.map(mergedPullRequest), fetchedAt: .now))
     try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
@@ -210,7 +215,7 @@ struct AppModelTests {
     #expect(reloaded.sidebarOrganizations == ["beta", "acme"])
   }
 
-  @Test func personalIsAWorkspaceOnlyWhileAConnectedLoginIsCounted() throws {
+  @Test func personalIsAWorkspaceOnlyWhileAConnectedLoginsRepositoryCounts() throws {
     let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -236,6 +241,13 @@ struct AppModelTests {
     model.setCounted(true, owner: sample.profile.login.uppercased(), for: connection.id)
     #expect(model.workspaces == [.personal, .organization("acme")])
     #expect(model.goals(for: .all) == Goals(daily: 3))
+
+    model.setCounted(false, owner: sample.profile.login, for: connection.id)
+    #expect(model.workspaces == [.organization("acme")])
+    var scope = try #require(model.connections.first).scope
+    scope.repositories.insert(repositories[1].id)
+    model.setScope(scope, for: connection.id)
+    #expect(model.workspaces == [.personal, .organization("acme")])
   }
 
   @Test func sidebarListsCountedOrganizationsWithOrWithoutMergedPullRequests() throws {

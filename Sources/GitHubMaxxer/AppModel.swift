@@ -193,13 +193,18 @@ final class AppModel {
     ).filter { interval.contains($0.mergedAt) }
   }
 
+  private var countedOwners: [String] {
+    connections.flatMap { account in
+      account.snapshot.visibleRepositories.filter(account.scope.includes).map(\.owner)
+    }
+  }
+
+  private func isPersonal(_ owner: String) -> Bool {
+    personalLogins.contains { $0.caseInsensitiveCompare(owner) == .orderedSame }
+  }
+
   var organizations: [String] {
-    let repositories = connections.flatMap { account in
-      account.snapshot.visibleRepositories.filter(account.scope.includes)
-    }
-    let owners = repositories.map(\.owner).filter { owner in
-      !personalLogins.contains { $0.caseInsensitiveCompare(owner) == .orderedSame }
-    }
+    let owners = countedOwners.filter { !isPersonal($0) }
     return Dictionary(owners.map { (OrganizationPreferences.key($0), $0) }) { first, _ in first }
       .values.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
   }
@@ -216,11 +221,9 @@ final class AppModel {
     } + organizations.filter { !isPinned($0) }
   }
 
-  var countsPersonal: Bool {
-    connections.contains { account in
-      account.scope.allRepositories || personalLogins.contains(where: account.scope.includesOwner)
-    }
-  }
+  var countsPersonal: Bool { countedOwners.contains(where: isPersonal) }
+
+  var opensWindowAtLaunch: Bool { connections.isEmpty || isPreview }
 
   var workspaces: [ActivityFilter] {
     (countsPersonal ? [.personal] : []) + sidebarOrganizations.map(ActivityFilter.organization)
