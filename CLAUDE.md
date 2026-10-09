@@ -1,8 +1,8 @@
 # Launching the app
 
-When launching Hammertime for testing, build it with `./scripts/build-app.sh` and always launch it in the background with `open -g -j build/Hammertime.app --args --no-activate` so it never takes focus from other windows. `--no-activate` stops the app from bringing itself to the foreground at launch. Never run the executable inside the bundle directly, and never launch it through Xcode's Run; both bring the app to the foreground.
+When launching Hammertime for testing, build it with `./scripts/build-app.sh` and always launch it in the background with `open -g -j build/Hammertime.app --args --no-activate` so it never takes focus from other windows. Hammertime is a menu bar app with no Dock icon; its window opens at launch only when no GitHub account is connected, and otherwise when Hammertime is opened again while running. `--no-activate` stops the app from bringing itself to the foreground at launch. Never run the executable inside the bundle directly, and never launch it through Xcode's Run; both bring the app to the foreground.
 
-The one exception is `./scripts/replay-slam.sh`, which replays the merge celebration for someone to watch. It brings Hammertime to the foreground so the slam plays in the window; with `--banner` it relaunches Hammertime in the background so the slam plays on the floating card instead. Run it only when the user asks to see the celebration.
+The one exception is `./scripts/replay-slam.sh`, which replays the merge celebration for someone to watch. It relaunches Hammertime in the background and then opens its window in the foreground so the slam plays there; with `--banner` it leaves the window closed so the slam plays on the floating card instead. Run it only when the user asks to see the celebration.
 
 # Compiler warnings
 

@@ -69,9 +69,9 @@ struct AppModelTests {
     let url = directory.appending(path: "state.json")
     let model = AppModel(stateURL: url, credentials: TestCredentials())
     model.setDailyGoal(3, for: .personal)
-    #expect(model.progress(for: .day).target == 3)
-    #expect(model.progress(for: .week).target == 15)
-    #expect(model.progress(for: .month).target == 60)
+    #expect(model.progress(for: .day, filter: .personal).target == 3)
+    #expect(model.progress(for: .week, filter: .personal).target == 15)
+    #expect(model.progress(for: .month, filter: .personal).target == 60)
     let reloaded = AppModel(stateURL: url, credentials: TestCredentials())
     #expect(reloaded.goals(for: .personal) == Goals(daily: 3))
     let state = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
@@ -120,9 +120,15 @@ struct AppModelTests {
     }
     let connection = AccountConnection(
       id: UUID(), label: "Work", profile: sample.profile,
-      scope: RepositoryScope(allRepositories: false, owners: ["acme", "beta"]),
+      scope: RepositoryScope(
+        allRepositories: false, owners: ["acme", "beta", sample.profile.login]),
       snapshot: GitHubSnapshot(
-        repositories: [], pullRequests: repositories.map(mergedPullRequest), fetchedAt: .now))
+        repositories: [
+          Repository(
+            id: "\(sample.profile.login)/app", nameWithOwner: "\(sample.profile.login)/app",
+            isPrivate: false)
+        ],
+        pullRequests: repositories.map(mergedPullRequest), fetchedAt: .now))
     try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
     let model = AppModel(stateURL: url, credentials: TestCredentials())
 
@@ -207,6 +213,41 @@ struct AppModelTests {
     #expect(Set(reloaded.pullRequests(for: .all)) == Set(pulls))
     #expect(reloaded.displayName(for: "acme") == "acme")
     #expect(reloaded.sidebarOrganizations == ["beta", "acme"])
+  }
+
+  @Test func personalIsAWorkspaceOnlyWhileAConnectedLoginsRepositoryCounts() throws {
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "state.json")
+    let sample = PreviewData.connections(now: .now)[0]
+    let repositories = ["acme/app", "\(sample.profile.login)/app"].map {
+      Repository(id: $0, nameWithOwner: $0, isPrivate: false)
+    }
+    let connection = AccountConnection(
+      id: UUID(), label: "Work", profile: sample.profile,
+      scope: RepositoryScope(allRepositories: false, owners: ["acme"]),
+      snapshot: GitHubSnapshot(
+        repositories: repositories, pullRequests: repositories.map(mergedPullRequest),
+        fetchedAt: .now))
+    try JSONEncoder().encode(FixtureState(connections: [connection])).write(to: url)
+    let model = AppModel(stateURL: url, credentials: TestCredentials())
+    model.setDailyGoal(2, for: .personal)
+    model.setDailyGoal(1, for: .organization("acme"))
+
+    #expect(model.workspaces == [.organization("acme")])
+    #expect(model.goals(for: .all) == Goals(daily: 1))
+
+    model.setCounted(true, owner: sample.profile.login.uppercased(), for: connection.id)
+    #expect(model.workspaces == [.personal, .organization("acme")])
+    #expect(model.goals(for: .all) == Goals(daily: 3))
+
+    model.setCounted(false, owner: sample.profile.login, for: connection.id)
+    #expect(model.workspaces == [.organization("acme")])
+    var scope = try #require(model.connections.first).scope
+    scope.repositories.insert(repositories[1].id)
+    model.setScope(scope, for: connection.id)
+    #expect(model.workspaces == [.personal, .organization("acme")])
   }
 
   @Test func sidebarListsCountedOrganizationsWithOrWithoutMergedPullRequests() throws {

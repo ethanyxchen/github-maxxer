@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 case "${1:-}" in
-  "") launch=(open build/Hammertime.app) ;;
-  --banner) launch=(open -g -j build/Hammertime.app --args --no-activate) ;;
+  "") reopen=(open build/Hammertime.app) ;;
+  --banner) reopen=(true) ;;
   *)
     printf 'Usage: %s [--banner]\n' "$0" >&2
     exit 1
@@ -30,10 +30,12 @@ newest = max(pulls, key=lambda pull: pull['mergedAt'])
 for connection in state['connections']:
     snapshot = connection['snapshot']
     snapshot['pullRequests'] = [pull for pull in snapshot['pullRequests'] if pull['id'] != newest['id']]
+    snapshot['fetchedAt'] = min(snapshot['fetchedAt'], newest['mergedAt'])
 print('Replaying:', newest['title'])
 with open(path + '.replay', 'w') as file:
     json.dump(state, file)
 os.chmod(path + '.replay', 0o600)
 os.replace(path + '.replay', path)
 PY
-"${launch[@]}"
+open -g -j build/Hammertime.app --args --no-activate
+"${reopen[@]}"

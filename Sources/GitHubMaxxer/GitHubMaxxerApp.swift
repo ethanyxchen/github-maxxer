@@ -19,6 +19,7 @@ struct GitHubMaxxerApp: App {
         .preferredColorScheme(previewColorScheme)
     }
     .defaultSize(width: 1120, height: 800)
+    .defaultLaunchBehavior(model.opensWindowAtLaunch ? .presented : .suppressed)
     .commands {
       CommandGroup(replacing: .newItem) {}
       CommandGroup(replacing: .appSettings) {
@@ -58,13 +59,28 @@ struct GitHubMaxxerApp: App {
     MenuBarExtra {
       MenuBarView().environment(model)
     } label: {
-      let today = model.progress(for: .day)
+      MenuBarLabel().environment(model)
+    }
+  }
+}
+
+private struct MenuBarLabel: View {
+  @Environment(AppModel.self) private var model
+  @Environment(\.openWindow) private var openWindow
+
+  var body: some View {
+    let today = model.progress(for: .day)
+    Group {
       if model.isReached(.day) {
         Image(systemName: "checkmark.circle.fill")
       } else {
         Image(nsImage: .mark)
       }
       Text("\(today.count)/\(today.target)")
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .reopenHammertime)) { _ in
+      openWindow(id: "main")
+      NSApplication.shared.activate(ignoringOtherApps: true)
     }
   }
 }
@@ -116,8 +132,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var banner: MergeBanner?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    NSApplication.shared.setActivationPolicy(.regular)
     banner = MergeBanner(model: model)
+    model.startRefreshing()
     if ProcessInfo.processInfo.arguments.contains("--verify-github") {
       Task {
         do {
@@ -137,12 +153,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           exit(1)
         }
       }
-    } else if !ProcessInfo.processInfo.arguments.contains("--no-activate") {
+    } else if model.opensWindowAtLaunch,
+      !ProcessInfo.processInfo.arguments.contains("--no-activate")
+    {
       NSApplication.shared.activate(ignoringOtherApps: true)
     }
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+    NotificationCenter.default.post(name: .reopenHammertime, object: nil)
+    return false
+  }
+}
+
+extension Notification.Name {
+  fileprivate static let reopenHammertime = Notification.Name("reopenHammertime")
 }
 
 extension NSImage {

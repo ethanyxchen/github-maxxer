@@ -1,6 +1,6 @@
 # Hammertime
 
-A native macOS app for tracking the pull requests you merge, across personal projects and work repositories.
+A native macOS menu bar app for tracking the pull requests you merge, across personal projects and work repositories.
 
 Set daily, weekly, and monthly targets for personal work and each organisation. Connect multiple GitHub accounts, choose entire repository owners or individual repositories, and see your progress against them.
 
