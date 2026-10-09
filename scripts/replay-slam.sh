@@ -30,6 +30,7 @@ newest = max(pulls, key=lambda pull: pull['mergedAt'])
 for connection in state['connections']:
     snapshot = connection['snapshot']
     snapshot['pullRequests'] = [pull for pull in snapshot['pullRequests'] if pull['id'] != newest['id']]
+    snapshot['fetchedAt'] = min(snapshot['fetchedAt'], newest['mergedAt'])
 print('Replaying:', newest['title'])
 with open(path + '.replay', 'w') as file:
     json.dump(state, file)
