@@ -92,10 +92,8 @@ struct RootView: View {
     } message: {
       Text("The new name only appears in Hammertime.")
     }
-    .onChange(of: model.sidebarOrganizations) { _, organizations in
-      if case .activity(.organization(let owner)) = model.destination,
-        !organizations.contains(owner)
-      {
+    .onChange(of: model.activities) { _, activities in
+      if case .activity(let filter) = model.destination, !activities.contains(filter) {
         model.destination = .activity(.all)
       }
     }
@@ -109,7 +107,9 @@ struct RootView: View {
       List(selection: Bindable(model).destination) {
         section("Activity") {
           row(.activity(.all))
-          row(.activity(.personal)).contextMenu { colourMenu(.personal) }
+          if model.countsPersonal {
+            row(.activity(.personal)).contextMenu { colourMenu(.personal) }
+          }
           ForEach(model.sidebarOrganizations, id: \.self) { owner in
             row(.activity(.organization(owner))).contextMenu { organizationMenu(owner) }
           }

@@ -216,8 +216,14 @@ final class AppModel {
     } + organizations.filter { !isPinned($0) }
   }
 
+  var countsPersonal: Bool {
+    connections.contains { account in
+      account.scope.allRepositories || personalLogins.contains(where: account.scope.includesOwner)
+    }
+  }
+
   var workspaces: [ActivityFilter] {
-    [.personal] + sidebarOrganizations.map(ActivityFilter.organization)
+    (countsPersonal ? [.personal] : []) + sidebarOrganizations.map(ActivityFilter.organization)
   }
 
   var activities: [ActivityFilter] { [.all] + workspaces }
