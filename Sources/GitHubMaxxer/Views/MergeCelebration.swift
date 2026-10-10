@@ -199,11 +199,11 @@ private struct Shatter: View {
   @MainActor private static let shake = KeyframeTimeline(initialValue: 0.0) {
     KeyframeTrack {
       LinearKeyframe(0, duration: Slam.release)
-      LinearKeyframe(28, duration: 0.03)
-      CubicKeyframe(-18, duration: 0.06)
-      CubicKeyframe(11, duration: 0.07)
-      CubicKeyframe(-6, duration: 0.07)
-      CubicKeyframe(3, duration: 0.08)
+      LinearKeyframe(0.035, duration: 0.03)
+      CubicKeyframe(-0.0225, duration: 0.06)
+      CubicKeyframe(0.01375, duration: 0.07)
+      CubicKeyframe(-0.0075, duration: 0.07)
+      CubicKeyframe(0.00375, duration: 0.08)
       CubicKeyframe(0, duration: 0.1)
     }
   }
@@ -220,7 +220,7 @@ private struct Shatter: View {
       let web = Web(center: center, reach: reach, seed: seed)
       guard let layers, time >= Slam.impact, time < Self.duration else { return }
       let growth = min(max((time - Slam.release) / Self.growth, 0), 1)
-      context.translateBy(x: 0, y: Self.shake.value(time: time))
+      context.translateBy(x: 0, y: size.height * Self.shake.value(time: time))
       var backdrop = context
       backdrop.opacity = 1 - min(max((time - Slam.reveal) / Self.fade, 0), 1)
       backdrop.draw(context.resolve(Image(decorative: layers.backdrop, scale: 1)), in: bounds)

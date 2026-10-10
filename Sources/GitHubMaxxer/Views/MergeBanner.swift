@@ -5,7 +5,7 @@ import os
 
 @MainActor
 final class MergeBanner {
-  fileprivate static let card = CGSize(width: 380, height: 68)
+  static let card = CGSize(width: 380, height: 68)
   fileprivate static let stage = CGSize(width: 640, height: 420)
   fileprivate static let overscan = 2.0
   private static let canvas = CGSize(
@@ -18,6 +18,7 @@ final class MergeBanner {
     contentRect: CGRect(origin: .zero, size: canvas),
     styleMask: [.borderless, .nonactivatingPanel],
     backing: .buffered, defer: true)
+  private let canvas: NSView
   private var shown: Date?
 
   init(model: AppModel) {
@@ -31,10 +32,25 @@ final class MergeBanner {
     panel.hasShadow = false
     panel.hidesOnDeactivate = false
     panel.canHide = false
-    panel.contentView = NSHostingView(
+    canvas = NSHostingView(
       rootView: BannerStage(dismiss: model.releaseBanner).environment(model)
         .frame(width: Self.canvas.width, height: Self.canvas.height))
+    canvas.frame.size = Self.canvas
+    panel.contentView = NSView()
+    panel.contentView?.addSubview(canvas)
     observe()
+  }
+
+  static func placement(frame: CGRect, visible: CGRect) -> (panel: CGRect, canvas: CGPoint) {
+    let card = CGPoint(
+      x: visible.maxX - margin - card.width / 2, y: visible.maxY - margin - card.height / 2)
+    let canvas = CGRect(
+      origin: CGPoint(
+        x: card.x - canvas.width / 2,
+        y: card.y - canvas.height / 2 + stage.height * (Slam.impactHeight - 0.5)),
+      size: canvas)
+    let panel = canvas.intersection(frame)
+    return (panel, CGPoint(x: canvas.minX - panel.minX, y: canvas.minY - panel.minY))
   }
 
   private func observe() {
@@ -66,14 +82,9 @@ final class MergeBanner {
       return
     }
     shown = banner.date
-    let visible = screen.visibleFrame
-    let center = CGPoint(
-      x: visible.maxX - Self.margin - Self.card.width / 2,
-      y: visible.maxY - Self.margin - Self.card.height / 2)
-    panel.setFrameOrigin(
-      CGPoint(
-        x: center.x - Self.canvas.width / 2,
-        y: center.y - Self.canvas.height / 2 + Self.stage.height * (Slam.impactHeight - 0.5)))
+    let placement = Self.placement(frame: screen.frame, visible: screen.visibleFrame)
+    panel.setFrame(placement.panel, display: false)
+    canvas.setFrameOrigin(placement.canvas)
     panel.orderFrontRegardless()
     Logger.merges.log(
       "Showed banner on \(screen.localizedName, privacy: .public) at \(String(describing: self.panel.frame), privacy: .public)"
@@ -94,44 +105,45 @@ private struct BannerStage: View {
   @Environment(\.openWindow) private var openWindow
   @State private var isHovering = false
 
-  private let offstage = AnyTransition.offset(x: MergeBanner.card.width + MergeBanner.margin)
+  private static let offstage = MergeBanner.card.width + MergeBanner.margin
 
   var body: some View {
     ZStack {
       if let banner = model.banner {
-        BannerCard(pulls: model.announced, landing: banner)
-          .onTapGesture {
-            openWindow(id: "main")
-            NSApplication.shared.activate(ignoringOtherApps: true)
-          }
-          .overlay(alignment: .topLeading) {
-            Button("Close", systemImage: "xmark", action: dismiss)
-              .labelStyle(.iconOnly)
-              .buttonStyle(.plain)
-              .font(.system(size: 9, weight: .bold))
-              .foregroundStyle(Palette.secondary)
-              .frame(width: 20, height: 20)
-              .background(Palette.panel, in: .circle)
-              .overlay { Circle().strokeBorder(Palette.rule) }
-              .offset(x: -7, y: -7)
-              .opacity(isHovering ? 1 : 0)
-          }
-          .onHover { isHovering = $0 }
-          .position(
-            x: MergeBanner.stage.width / 2, y: MergeBanner.stage.height * Slam.impactHeight
-          )
-          .transition(
-            .asymmetric(
-              insertion: offstage, removal: offstage.combined(with: .opacity)))
+        Choreography(start: banner.date, duration: Slam.settle) { time in
+          BannerCard(pulls: model.announced, landing: banner)
+            .onTapGesture {
+              openWindow(id: "main")
+              NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+            .overlay(alignment: .topLeading) {
+              Button("Close", systemImage: "xmark", action: dismiss)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Palette.secondary)
+                .frame(width: 20, height: 20)
+                .background(Palette.panel, in: .circle)
+                .overlay { Circle().strokeBorder(Palette.rule) }
+                .offset(x: -7, y: -7)
+                .opacity(isHovering ? 1 : 0)
+            }
+            .onHover { isHovering = $0 }
+            .position(
+              x: MergeBanner.stage.width / 2, y: MergeBanner.stage.height * Slam.impactHeight
+            )
+            .offset(x: Self.offstage * (1 - UnitCurve.easeOut.value(at: time / Slam.settle)))
+        }
+        .transition(
+          .asymmetric(
+            insertion: .identity,
+            removal: .offset(x: Self.offstage).combined(with: .opacity)))
         HammerSwing(landing: banner, overscan: MergeBanner.overscan)
           .transition(.identity)
       }
     }
     .frame(width: MergeBanner.stage.width, height: MergeBanner.stage.height)
-    .animation(
-      model.banner == nil
-        ? .easeIn(duration: MergeBanner.exit) : .easeOut(duration: Slam.settle),
-      value: model.banner == nil)
+    .animation(.easeIn(duration: MergeBanner.exit), value: model.banner == nil)
   }
 }
 
