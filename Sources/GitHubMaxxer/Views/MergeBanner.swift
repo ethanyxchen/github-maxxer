@@ -105,44 +105,45 @@ private struct BannerStage: View {
   @Environment(\.openWindow) private var openWindow
   @State private var isHovering = false
 
-  private let offstage = AnyTransition.offset(x: MergeBanner.card.width + MergeBanner.margin)
+  private static let offstage = MergeBanner.card.width + MergeBanner.margin
 
   var body: some View {
     ZStack {
       if let banner = model.banner {
-        BannerCard(pulls: model.announced, landing: banner)
-          .onTapGesture {
-            openWindow(id: "main")
-            NSApplication.shared.activate(ignoringOtherApps: true)
-          }
-          .overlay(alignment: .topLeading) {
-            Button("Close", systemImage: "xmark", action: dismiss)
-              .labelStyle(.iconOnly)
-              .buttonStyle(.plain)
-              .font(.system(size: 9, weight: .bold))
-              .foregroundStyle(Palette.secondary)
-              .frame(width: 20, height: 20)
-              .background(Palette.panel, in: .circle)
-              .overlay { Circle().strokeBorder(Palette.rule) }
-              .offset(x: -7, y: -7)
-              .opacity(isHovering ? 1 : 0)
-          }
-          .onHover { isHovering = $0 }
-          .position(
-            x: MergeBanner.stage.width / 2, y: MergeBanner.stage.height * Slam.impactHeight
-          )
-          .transition(
-            .asymmetric(
-              insertion: offstage, removal: offstage.combined(with: .opacity)))
+        Choreography(start: banner.date, duration: Slam.settle) { time in
+          BannerCard(pulls: model.announced, landing: banner)
+            .onTapGesture {
+              openWindow(id: "main")
+              NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+            .overlay(alignment: .topLeading) {
+              Button("Close", systemImage: "xmark", action: dismiss)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Palette.secondary)
+                .frame(width: 20, height: 20)
+                .background(Palette.panel, in: .circle)
+                .overlay { Circle().strokeBorder(Palette.rule) }
+                .offset(x: -7, y: -7)
+                .opacity(isHovering ? 1 : 0)
+            }
+            .onHover { isHovering = $0 }
+            .position(
+              x: MergeBanner.stage.width / 2, y: MergeBanner.stage.height * Slam.impactHeight
+            )
+            .offset(x: Self.offstage * (1 - UnitCurve.easeOut.value(at: time / Slam.settle)))
+        }
+        .transition(
+          .asymmetric(
+            insertion: .identity,
+            removal: .offset(x: Self.offstage).combined(with: .opacity)))
         HammerSwing(landing: banner, overscan: MergeBanner.overscan)
           .transition(.identity)
       }
     }
     .frame(width: MergeBanner.stage.width, height: MergeBanner.stage.height)
-    .animation(
-      model.banner == nil
-        ? .easeIn(duration: MergeBanner.exit) : .easeOut(duration: Slam.settle),
-      value: model.banner == nil)
+    .animation(.easeIn(duration: MergeBanner.exit), value: model.banner == nil)
   }
 }
 
